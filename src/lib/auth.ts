@@ -13,7 +13,6 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.username || !credentials?.password) return null;
-
                 try {
                     const user = await getUserByCredentials(credentials.username, credentials.password);
                     if (user) {
@@ -27,6 +26,7 @@ export const authOptions: NextAuthOptions = {
                             phone: (user as any).TELEFONO,
                             sessionToken: (user as any).SESSION_TOKEN,
                             image: user.FOTO,
+                            campana: user['CAMPAÑA'] || '',  // ← guardado como 'campana' en el token
                         };
                     }
                     return null;
@@ -48,6 +48,7 @@ export const authOptions: NextAuthOptions = {
                 token.phone = (user as any).phone;
                 token.sessionToken = (user as any).sessionToken;
                 token.picture = (user as any).image;
+                token.campana = (user as any).campana || '';  // ← en el JWT
             }
             if (trigger === "update" && session?.image) {
                 token.picture = session.image;
@@ -63,6 +64,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).supervisor = token.supervisor;
                 (session.user as any).phone = token.phone;
                 (session.user as any).sessionToken = token.sessionToken;
+                (session.user as any).campana = token.campana || '';  // ← en la sesión
                 session.user.image = token.picture as string;
             }
             return session;
@@ -73,6 +75,6 @@ export const authOptions: NextAuthOptions = {
     },
     session: {
         strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 30 * 24 * 60 * 60,
     }
 };
