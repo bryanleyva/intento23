@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getVentasData, updateVentaStatus, updateVentaData, getChatMessages, sendChatMessage } from '@/app/actions/leads';
+import React, { useState, useEffect, useRef } from 'react';
+import { getVentasData, updateVentaStatus, updateVentaData, getChatMessages, sendChatMessage, appendSustentos } from '@/app/actions/leads';
+import { uploadFileToDrive } from '@/app/actions/drive';
 import { AppSwal } from '@/lib/sweetalert';
 import SubirVentaModal from './SubirVentaModal';
 import { exportVentasToExcel } from '@/lib/excel-utils';
@@ -70,6 +71,7 @@ const STATUS_COLORS: Record<string, string> = {
     'PENDIENTE ENVÍO': 'status-sky',
     'FLUXO': 'status-blue',
     'ACTIVADO': 'status-emerald',
+    'SE NECESITA ARCHIVOS': 'status-amber',
 };
 
 const STATUS_OPTIONS = [
@@ -125,6 +127,10 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
     const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
     const [correctionSaleData, setCorrectionSaleData] = useState<any>(null);
 
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<string[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as Element;
@@ -150,7 +156,6 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
         const data = await getVentasData();
         setVentas(data);
 
-        // REACIVITY FIX: If there's an open record, update its local state with fresh data
         if (openedSaleId) {
             const updatedSale = data.find(v => v.id === openedSaleId);
             if (updatedSale) {
@@ -219,6 +224,92 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
     const isAuthorizedToEdit = (currentUserRole === 'ADMIN' || (currentUserRole === 'SPECIAL' && currentUserCargo === 'BACK OFFICE'));
     const isStandardEjecutivo = currentUserRole === 'STANDAR' && currentUserCargo === 'EJECUTIVO DE VENTAS';
     const isSupervisor = currentUserRole === 'ADMIN' || currentUserCargo?.trim().toUpperCase().includes('SUPERVISOR');
+    const isBackOfficeRole =
+        (currentUserRole === 'SPECIAL' || currentUserRole === 'ADMIN') &&
+        (currentUserCargo?.trim().toUpperCase().includes('BACK OFFICE') ||
+         currentUserCargo?.trim().toUpperCase().includes('FULL STACK'));
+
+    const handleMarcarNecesitaArchivos = async () => {
+        if (!openedSaleId) return;
+
+        const { value: observacion, isConfirmed } = await AppSwal.fire({
+            title: 'Se Necesitan Archivos',
+            input: 'textarea',
+            inputLabel: 'Observación para el supervisor',
+            inputPlaceholder: 'Indica qué archivos se necesitan y por qué...',
+            inputAttributes: { 'aria-label': 'Observación' },
+            showCancelButton: true,
+            confirmButtonText: 'Enviar al Supervisor',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                popup: 'swal-popup-dark',
+                title: 'swal-title-dark',
+                htmlContainer: 'swal-text-dark',
+                confirmButton: 'swal-confirm-btn',
+                cancelButton: 'swal-cancel-btn',
+                input: 'swal-input-dark'
+            },
+            inputValidator: (value) => { if (!value?.trim()) return '¡Debes escribir una observación!' }
+        });
+
+        if (!isConfirmed || !observacion) return;
+
+        const result = await updateVentaData(openedSaleId, {
+            estado: 'SE NECESITA ARCHIVOS',
+            observacion: `[Back Office] ${observacion}`
+        }, currentUserName);
+
+        if (result.success) {
+            await sendChatMessage(openedSaleId, `📋 SE NECESITAN ARCHIVOS\n${observacion}`, currentUserName, 'SOLICITUD_ARCHIVOS');
+            setEditModeData((prev: any) => ({ ...prev, estado: 'SE NECESITA ARCHIVOS', observacion: `[Back Office] ${observacion}` }));
+            setVentas(prev => prev.map(v => v.id === openedSaleId ? { ...v, estado: 'SE NECESITA ARCHIVOS' } : v));
+            loadChat(openedSaleId);
+            AppSwal.fire({ icon: 'success', title: 'Notificado al supervisor', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+        } else {
+            AppSwal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el estado' });
+        }
+    };
+
+    const handleSubirArchivos = async (files: FileList) => {
+        if (!openedSaleId || files.length === 0) return;
+        setUploadingFiles(true);
+        setUploadProgress([]);
+        const newIds: string[] = [];
+        const progressLog: string[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            progressLog.push(`Subiendo ${file.name}...`);
+            setUploadProgress([...progressLog]);
+
+            const formData = new FormData();
+            formData.append('file', file);
+            const result = await uploadFileToDrive(formData);
+
+            if (result.success && result.fileId) {
+                newIds.push(result.fileId);
+                progressLog[i] = `✓ ${file.name}`;
+            } else {
+                progressLog[i] = `✗ ${file.name}: ${result.error}`;
+            }
+            setUploadProgress([...progressLog]);
+        }
+
+        if (newIds.length > 0) {
+            const saveResult = await appendSustentos(openedSaleId, newIds);
+            if (saveResult.success) {
+                await sendChatMessage(openedSaleId, `✅ Supervisor subió ${newIds.length} archivo(s) adicional(es).`, currentUserName, 'ARCHIVOS_SUBIDOS');
+                loadChat(openedSaleId);
+                loadData();
+                AppSwal.fire({ icon: 'success', title: 'Archivos subidos', text: `${newIds.length} archivo(s) guardados correctamente.`, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            } else {
+                AppSwal.fire({ icon: 'error', title: 'Error al guardar', text: saveResult.error });
+            }
+        }
+
+        setUploadingFiles(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     const handleStatusUpdate = async (id: string, newStatus: string) => {
         const sale = ventas.find(v => v.id === id);
@@ -1040,6 +1131,34 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                             </div>
                         </div>
                         <div className="dv-header-actions">
+                            {isBackOfficeRole && (
+                                <button
+                                    onClick={handleMarcarNecesitaArchivos}
+                                    className="dv-btn-action"
+                                    style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}
+                                >
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    SE NECESITA ARCHIVOS
+                                </button>
+                            )}
+                            {(currentUserRole === 'ADMIN' || currentUserRole === 'SPECIAL') && editModeData?.estado === 'SE NECESITA ARCHIVOS' && (
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploadingFiles}
+                                    className="dv-btn-action"
+                                    style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)', boxShadow: '0 0 16px rgba(251,191,36,0.2)' }}
+                                >
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    {uploadingFiles ? 'SUBIENDO...' : 'SUBIR ARCHIVOS'}
+                                </button>
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={e => e.target.files && handleSubirArchivos(e.target.files)}
+                            />
                             {isAuthorizedToEdit && (
                                 <>
                                     <button
@@ -1149,7 +1268,40 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
 
                             {/* Data Part */}
                             <div className="dv-form-stack">
-                                {/* Chat Section moved here or beside info */}
+                                    {/* Panel de archivos para supervisor cuando Back Office marcó SE NECESITA ARCHIVOS */}
+                                {(currentUserRole === 'ADMIN' || currentUserRole === 'SPECIAL') && editModeData?.estado === 'SE NECESITA ARCHIVOS' && (
+                                    <div className="dv-card" style={{ border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.05)' }}>
+                                        <div className="dv-card-header">
+                                            <h3 className="dv-card-title" style={{ color: '#fbbf24' }}>Acción Requerida — Subir Archivos</h3>
+                                            <svg width="18" height="18" fill="none" stroke="#fbbf24" style={{ opacity: 0.5 }} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {editModeData.observacion && (
+                                                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '1rem', padding: '1rem' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: 950, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Observación del Back Office</span>
+                                                    <p style={{ fontSize: '13px', color: '#d4d4d8', marginTop: '0.5rem', lineHeight: 1.5 }}>{editModeData.observacion}</p>
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={uploadingFiles}
+                                                style={{ padding: '0.85rem 1.5rem', background: uploadingFiles ? 'rgba(251,191,36,0.05)' : 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.35)', borderRadius: '1rem', fontWeight: 950, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: uploadingFiles ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: uploadingFiles ? 0.6 : 1, transition: 'all 0.2s' }}
+                                            >
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                {uploadingFiles ? 'Subiendo archivos...' : 'Seleccionar Archivos y Subir'}
+                                            </button>
+                                            {uploadProgress.length > 0 && (
+                                                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '0.75rem', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                    {uploadProgress.map((msg, i) => (
+                                                        <span key={i} style={{ fontSize: '12px', color: msg.startsWith('✓') ? '#10b981' : msg.startsWith('✗') ? '#f87171' : '#a1a1aa', fontWeight: 700 }}>{msg}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Chat Section */}
                                 <div className="chat-panel">
                                     <div className="chat-header">
                                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></div>
@@ -1163,13 +1315,26 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                                                 <p style={{ marginTop: '1rem', fontSize: '12px', fontWeight: 'bold' }}>Sin mensajes aún</p>
                                             </div>
                                         ) : (
-                                            chatMessages.map((msg, i) => (
-                                                <div key={i} className={`chat-bubble ${msg.usuario === currentUserName ? 'sent' : 'received'}`}>
-                                                    <span className="msg-user">{msg.usuario} {msg.tipo === 'STAFF' ? '• STAFF' : ''}</span>
-                                                    <p className="msg-text">{msg.mensaje}</p>
-                                                    <span className="msg-date">{msg.fecha}</span>
-                                                </div>
-                                            ))
+                                            chatMessages.map((msg, i) => {
+                                                const isSpecial = msg.tipo === 'SOLICITUD_ARCHIVOS' || msg.tipo === 'ARCHIVOS_SUBIDOS';
+                                                const isSolicitud = msg.tipo === 'SOLICITUD_ARCHIVOS';
+                                                if (isSpecial) {
+                                                    return (
+                                                        <div key={i} style={{ alignSelf: 'center', background: isSolicitud ? 'rgba(251,191,36,0.08)' : 'rgba(16,185,129,0.08)', border: `1px solid ${isSolicitud ? 'rgba(251,191,36,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius: '1rem', padding: '0.75rem 1.25rem', width: '100%', maxWidth: '100%' }}>
+                                                            <span style={{ fontSize: '10px', fontWeight: 950, color: isSolicitud ? '#fbbf24' : '#10b981', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '0.25rem' }}>{isSolicitud ? '📋 Solicitud de Archivos' : '✅ Archivos Subidos'}</span>
+                                                            <p style={{ fontSize: '13px', color: '#d4d4d8' }}>{msg.mensaje}</p>
+                                                            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', display: 'block', marginTop: '0.35rem' }}>{msg.usuario} · {msg.fecha}</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <div key={i} className={`chat-bubble ${msg.usuario === currentUserName ? 'sent' : 'received'}`}>
+                                                        <span className="msg-user">{msg.usuario} {msg.tipo === 'STAFF' ? '• STAFF' : ''}</span>
+                                                        <p className="msg-text">{msg.mensaje}</p>
+                                                        <span className="msg-date">{msg.fecha}</span>
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                     <div className="chat-input-area">
@@ -1502,7 +1667,14 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                                         }}
                                     >
                                         <td className="table-cell first-col">
-                                            <span className="badge-id">{v.id}</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                <span className="badge-id">{v.id}</span>
+                                                {v.estado === 'SE NECESITA ARCHIVOS' && (
+                                                    <span title="Back Office solicita archivos" style={{ fontSize: '9px', fontWeight: 950, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '6px', padding: '1px 6px', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                                        📋 Archivos
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="table-cell-left">
                                             <div className="client-info-stack">

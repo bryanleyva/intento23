@@ -3,7 +3,6 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import SessionGuardian from "@/components/SessionGuardian";
-import InterstitialAd from "@/components/InterstitialAd";
 import WhatsAppSupport from "@/components/WhatsAppSupport";
 
 export default async function MainLayout({
@@ -22,7 +21,6 @@ export default async function MainLayout({
     return (
         <div className="min-h-screen relative z-10 flex flex-col w-full bg-[#050505]">
             <SessionGuardian />
-            <InterstitialAd />
             <Navbar
                 userRole={user.role}
                 userName={session.user.name}

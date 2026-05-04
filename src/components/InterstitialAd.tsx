@@ -8,8 +8,8 @@ export default function InterstitialAd() {
     const [isClosing, setIsClosing] = useState(false);
     const [canClose, setCanClose] = useState(false);
     const [secondsRemaining, setSecondsRemaining] = useState(3);
-    const adImageUrl = "https://res.cloudinary.com/dpwse9wkc/image/upload/v1767994516/entel_wz6f8k.jpg";
-    const secondAdImageUrl = "https://res.cloudinary.com/dpwse9wkc/image/upload/v1770404388/T%C3%ADtulo_2_jjgsgp.png";
+    const adImageUrl = "https://res.loudinary.com/dpwse9wkc/image/upload/v1767994516/entel_wz6f8k.jpg";
+    const secondAdImageUrl = "https://res.loudinary.com/dpwse9wkc/image/upload/v1770404388/T%C3%ADtulo_2_jjgsgp.png";
 
     useEffect(() => {
         // Check if ad has already been shown in this session
@@ -75,7 +75,7 @@ export default function InterstitialAd() {
                     <div className="ad-image-wrapper">
                         <img
                             src={adImageUrl}
-                            alt="Entel Advertisement"
+                            alt="Entel Advrtisement"
                             className="ad-image"
                             onLoad={(e) => (e.currentTarget as HTMLImageElement).classList.add('loaded')}
                         />
