@@ -22,7 +22,7 @@ export function hasCampaignAccess(
     userRole: string | undefined,
     target: Campaign
 ): boolean {
-    if (userRole === 'ADMIN') return true;
+    if (userRole === 'ADMIN' || userRole === 'JEFE_BO') return true;
     const campaigns = parseCampaigns(userCampaigns);
     return campaigns.includes(target);
 }
@@ -35,7 +35,7 @@ export function getEffectiveCampaigns(
     userCampaigns: string | undefined,
     userRole: string | undefined
 ): Campaign[] {
-    if (userRole === 'ADMIN') return ['R20', 'R10'];
+    if (userRole === 'ADMIN' || userRole === 'JEFE_BO') return ['R20', 'R10'];
     return parseCampaigns(userCampaigns);
 }
 
@@ -60,7 +60,7 @@ export function getDefaultCampaign(
 // HELPERS DE ROLES
 // ============================================
 
-export type UserRole = 'ADMIN' | 'SPECIAL' | 'STANDAR' | 'BACKOFFICE';
+export type UserRole = 'ADMIN' | 'SPECIAL' | 'STANDAR' | 'BACKOFFICE' | 'JEFE_BO';
 
 export function isBackOffice(role: string | undefined): boolean {
     return role === 'BACKOFFICE';
@@ -79,8 +79,8 @@ export function isAdmin(role: string | undefined): boolean {
 }
 
 /**
- * ¿El usuario puede cambiar estados de ventas en Mesa de Control?
- * Solo ADMIN y BACKOFFICE (con la campaña correspondiente).
+ * ¿El usuario puede acceder a Mesa de Control?
+ * ADMIN siempre. BACKOFFICE y JEFE_BO con la campaña correspondiente.
  */
 export function canManageMesaControl(
     role: string | undefined,
@@ -88,6 +88,8 @@ export function canManageMesaControl(
     target: Campaign
 ): boolean {
     if (role === 'ADMIN') return true;
-    if (role !== 'BACKOFFICE') return false;
-    return hasCampaignAccess(userCampaigns, role, target);
+    if (role === 'BACKOFFICE' || role === 'JEFE_BO') {
+        return hasCampaignAccess(userCampaigns, role, target);
+    }
+    return false;
 }

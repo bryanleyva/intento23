@@ -27,7 +27,7 @@ interface NavItem {
  */
 function parseCampaigns(campana?: string, role?: string): string[] {
     if (!campana || campana.trim() === '') {
-        if (role === 'ADMIN') return ['R20', 'R10'];
+        if (role === 'ADMIN' || role === 'JEFE_BO') return ['R20', 'R10'];
         return ['R20']; // default para ejecutivos sin campaña asignada
     }
     const parsed = campana
@@ -51,6 +51,7 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
     const isPostVenta =
         userRole === 'ADMIN' ||
         userRole === 'ANDREA' ||
+        userRole === 'JEFE_BO' ||
         userCargo?.trim().toUpperCase().includes('POSTVENTA');
 
     const allNavItems: NavItem[] = [
@@ -59,11 +60,11 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
         { name: 'Leads',              path: '/leads',            campaign: 'R20', roles: ['STANDAR', 'SPECIAL', 'ADMIN'] },
         { name: 'Deals',              path: '/deals',            campaign: 'R20', roles: ['STANDAR', 'SPECIAL', 'ADMIN'] },
         { name: 'Post Venta',         path: '/postventa',        campaign: 'R20' },
-        { name: 'Linker',             path: '/linker',           campaign: 'R20', roles: ['STANDAR', 'SPECIAL', 'ADMIN', 'BACKOFFICE'] },
+        { name: 'Linker',             path: '/linker',           campaign: 'R20', roles: ['STANDAR', 'SPECIAL', 'ADMIN', 'BACKOFFICE', 'JEFE_BO'] },
         // --- R10 ---
         { name: 'Deals R10',          path: '/deals-r10',        campaign: 'R10', roles: ['STANDAR', 'ADMIN'] },
         { name: 'Ingresos ',          path: '/ingresos-r10',     campaign: 'R10', roles: ['STANDAR', 'SPECIAL', 'ADMIN'] },
-        { name: 'Mesa Control R10',   path: '/mesa-control-r10', campaign: 'R10', roles: ['BACKOFFICE', 'ADMIN'] },
+        { name: 'Mesa Control R10',   path: '/mesa-control-r10', campaign: 'R10', roles: ['BACKOFFICE', 'ADMIN', 'JEFE_BO'] },
         { name: 'Supervisor R10',     path: '/supervisor-r10',   campaign: 'R10', roles: ['SPECIAL', 'ADMIN'] },
         { name: 'Reporte R10',        path: '/reporte-r10',      campaign: 'R10' },
         // --- Compartido ---

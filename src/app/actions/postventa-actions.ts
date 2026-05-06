@@ -1,7 +1,6 @@
 'use server';
 
 import { doc, loadDoc } from '@/lib/google-sheets';
-import { PostVentaRecord } from '@/app/actions/postventa';
 
 // ─── NOMBRE DE LA HOJA NUEVA ─────────────────────────────────────────────────
 const SHEET_NAME = 'POSTVENTA_SEGUIMIENTO';
@@ -84,6 +83,22 @@ export async function savePostVentaObservacion(data: {
     }
 }
 
+function mapRow(r: any): PostVentaObservacion {
+    return {
+        id: r.get('ID') || '',
+        ruc: r.get('RUC') || '',
+        razonSocial: r.get('RAZON SOCIAL') || '',
+        telefono: r.get('TELEFONO') || '',
+        ejecutivoOriginal: r.get('EJECUTIVO ORIGINAL') || '',
+        lineas: r.get('LINEAS') || '',
+        cargoFijo: r.get('CARGO FIJO') || '',
+        segmento: r.get('SEGMENTO') || '',
+        observacion: r.get('OBSERVACION') || '',
+        usuario: r.get('USUARIO') || '',
+        fecha: r.get('FECHA') || '',
+    };
+}
+
 // ─── OBTENER HISTORIAL DEL USUARIO ───────────────────────────────────────────
 export async function getPostVentaHistorial(
     usuario: string
@@ -97,24 +112,29 @@ export async function getPostVentaHistorial(
 
         const data: PostVentaObservacion[] = rows
             .filter(r => (r.get('USUARIO') || '').trim().toLowerCase() === usuario.trim().toLowerCase())
-            .map(r => ({
-                id: r.get('ID') || '',
-                ruc: r.get('RUC') || '',
-                razonSocial: r.get('RAZON SOCIAL') || '',
-                telefono: r.get('TELEFONO') || '',
-                ejecutivoOriginal: r.get('EJECUTIVO ORIGINAL') || '',
-                lineas: r.get('LINEAS') || '',
-                cargoFijo: r.get('CARGO FIJO') || '',
-                segmento: r.get('SEGMENTO') || '',
-                observacion: r.get('OBSERVACION') || '',
-                usuario: r.get('USUARIO') || '',
-                fecha: r.get('FECHA') || '',
-            }))
-            .reverse(); // más recientes primero
+            .map(mapRow)
+            .reverse();
 
         return { success: true, data };
     } catch (error) {
         console.error('Error en getPostVentaHistorial:', error);
+        return { success: false, error: 'Error al obtener el historial' };
+    }
+}
+
+// ─── OBTENER HISTORIAL DE TODOS LOS USUARIOS (para JEFE_BO) ─────────────────
+export async function getAllPostVentaHistorial(): Promise<{ success: boolean; data?: PostVentaObservacion[]; error?: string }> {
+    try {
+        await loadDoc();
+        const sheet = doc.sheetsByTitle[SHEET_NAME];
+        if (!sheet) return { success: true, data: [] };
+
+        const rows = await sheet.getRows();
+        const data: PostVentaObservacion[] = rows.map(mapRow).reverse();
+
+        return { success: true, data };
+    } catch (error) {
+        console.error('Error en getAllPostVentaHistorial:', error);
         return { success: false, error: 'Error al obtener el historial' };
     }
 }

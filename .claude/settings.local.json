@@ -4,7 +4,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\" -Recurse -Filter \"*linker*\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object FullName)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\linker\" -Force)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(ls -la \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\mesa-control-r10\\\\\\\\\")"
     ]
   }
 }

@@ -9,6 +9,9 @@ interface Props {
     cuentas: PostVentaRecord[];
     usuario: string;
     prevMonth: string;
+    userRole?: string;
+    initialGuardadas?: string[];
+    allHistorial?: PostVentaObservacion[];
 }
 
 type Vista = 'gestion' | 'historial';
@@ -22,12 +25,23 @@ const SEG_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
 };
 const getSeg = (s: string) => SEG_COLORS[s?.toUpperCase()] ?? { bg: '#ffffff08', text: '#94a3b8', glow: '#ffffff20' };
 
-export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props) {
-    const [vista, setVista] = useState<Vista>('gestion');
-    const [idx, setIdx] = useState(0);
+export default function PostVentaGestion({ cuentas, usuario, prevMonth, userRole, initialGuardadas, allHistorial }: Props) {
+    const isJefeBO = userRole === 'JEFE_BO';
+
+    const [vista, setVista] = useState<Vista>(isJefeBO ? 'historial' : 'gestion');
+
+    // Inicializar guardadas desde el servidor (persistencia entre sesiones)
+    const [guardadas, setGuardadas] = useState<Set<string>>(() => new Set(initialGuardadas ?? []));
+
+    // Encontrar la primera cuenta no guardada para retomar desde ahí
+    const [idx, setIdx] = useState<number>(() => {
+        const saved = new Set(initialGuardadas ?? []);
+        const firstUnsaved = cuentas.findIndex(c => !saved.has(c.ruc));
+        return firstUnsaved >= 0 ? firstUnsaved : 0;
+    });
+
     const [obs, setObs] = useState('');
-    const [guardadas, setGuardadas] = useState<Set<string>>(new Set());
-    const [historial, setHistorial] = useState<PostVentaObservacion[]>([]);
+    const [historial, setHistorial] = useState<PostVentaObservacion[]>(isJefeBO ? (allHistorial ?? []) : []);
     const [loadingHist, setLoadingHist] = useState(false);
     const [isPending, startTransition] = useTransition();
 
@@ -38,8 +52,9 @@ export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props)
     const yaGuardada = cuenta ? guardadas.has(cuenta.ruc) : false;
     const terminado = guardadas.size === total && total > 0;
 
-    // Cargar historial cuando cambia de vista
+    // Cargar historial propio cuando cambia de vista (solo para usuarios normales)
     useEffect(() => {
+        if (isJefeBO) return; // JEFE_BO ya tiene allHistorial precargado
         if (vista === 'historial') {
             setLoadingHist(true);
             getPostVentaHistorial(usuario).then(r => {
@@ -47,7 +62,7 @@ export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props)
                 setLoadingHist(false);
             });
         }
-    }, [vista, usuario]);
+    }, [vista, usuario, isJefeBO]);
 
     // Limpiar observación al cambiar de cuenta
     useEffect(() => { setObs(''); }, [idx]);
@@ -179,11 +194,13 @@ export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props)
 
             {/* ── TABS ── */}
             <div className="pv-tabs">
-                <button className={`pv-tab ${vista === 'gestion' ? 'active' : ''}`} onClick={() => setVista('gestion')}>
-                    📞 Gestión
-                </button>
+                {!isJefeBO && (
+                    <button className={`pv-tab ${vista === 'gestion' ? 'active' : ''}`} onClick={() => setVista('gestion')}>
+                        📞 Gestión
+                    </button>
+                )}
                 <button className={`pv-tab ${vista === 'historial' ? 'active' : ''}`} onClick={() => setVista('historial')}>
-                    📋 Mis registros
+                    {isJefeBO ? '📋 Todos los registros' : '📋 Mis registros'}
                 </button>
             </div>
 
@@ -349,7 +366,7 @@ export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props)
                 <>
                     <div style={{ marginBottom:'1.5rem', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                         <h2 style={{ margin:0, fontSize:'1.1rem', fontWeight:900, color:'white' }}>
-                            Mis llamadas registradas
+                            {isJefeBO ? 'Todas las llamadas registradas' : 'Mis llamadas registradas'}
                         </h2>
                         <span style={{ fontSize:'0.72rem', color:'#475569', fontWeight:700 }}>
                             {historial.length} registros
@@ -382,6 +399,11 @@ export default function PostVentaGestion({ cuentas, usuario, prevMonth }: Props)
                                         </div>
                                         <div className="pv-hist-obs">{h.observacion}</div>
                                         <div className="pv-hist-meta">
+                                            {isJefeBO && h.usuario && (
+                                                <span className="pv-hist-chip" style={{ color:'#a78bfa', borderColor:'#8b5cf640', background:'rgba(139,92,246,0.08)' }}>
+                                                    🎧 {h.usuario}
+                                                </span>
+                                            )}
                                             {h.segmento && (
                                                 <span className="pv-hist-chip" style={{ color: sc.text, borderColor: sc.glow }}>
                                                     {h.segmento}

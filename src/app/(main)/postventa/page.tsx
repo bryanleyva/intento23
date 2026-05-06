@@ -2,11 +2,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getPostVentaData } from "@/app/actions/postventa";
+import { getPostVentaHistorial, getAllPostVentaHistorial } from "@/app/actions/postventa-actions";
 import PostVentaGestion from "@/components/PostVentaGestion";
 
 function isPostVentaAuthorized(role: string, cargo: string): boolean {
     if (role === 'ADMIN') return true;
     if (role === 'ANDREA') return true;
+    if (role === 'JEFE_BO') return true;
     return (cargo || '').trim().toUpperCase().includes('POSTVENTA');
 }
 
@@ -44,8 +46,52 @@ export default async function PostVentaPage() {
     }
 
     const prevMonth = getPrevMonthLabel();
+    const isJefeBO = role === 'JEFE_BO';
+
+    // JEFE_BO: solo ve el historial de todos — no necesita la lista de cuentas
+    if (isJefeBO) {
+        const allHistResult = await getAllPostVentaHistorial();
+        const allHistorial = allHistResult.data ?? [];
+        return (
+            <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
+                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                    <div style={{
+                        display: 'inline-block',
+                        background: 'rgba(16,185,129,0.12)',
+                        border: '1px solid rgba(16,185,129,0.3)',
+                        color: '#34d399',
+                        fontSize: '0.7rem', fontWeight: 900,
+                        letterSpacing: '0.15em', textTransform: 'uppercase',
+                        padding: '5px 14px', borderRadius: '999px', marginBottom: '1rem'
+                    }}>
+                        📋 Post Venta — Supervisión
+                    </div>
+                    <h1 style={{ fontSize: 'clamp(1.8rem,4vw,2.8rem)', fontWeight: 950, margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>
+                        Registros de Gestión
+                    </h1>
+                    <p style={{ color: '#475569', fontSize: '0.9rem', margin: 0 }}>
+                        {allHistorial.length} observaciones registradas en total
+                    </p>
+                </div>
+                <PostVentaGestion
+                    cuentas={[]}
+                    usuario={userName}
+                    prevMonth={prevMonth}
+                    userRole={role}
+                    allHistorial={allHistorial}
+                />
+            </div>
+        );
+    }
+
+    // Usuarios normales (ANDREA, ADMIN, cargo POSTVENTA)
     const result = await getPostVentaData();
     const data = result.success ? (result.data ?? []) : [];
+
+    // Cargar historial para reconstruir qué cuentas ya guardó
+    const histResult = await getPostVentaHistorial(userName);
+    const histRucs = new Set((histResult.data ?? []).map(h => h.ruc));
+    const initialGuardadas = data.filter(c => histRucs.has(c.ruc)).map(c => c.ruc);
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
@@ -85,6 +131,8 @@ export default async function PostVentaPage() {
                 cuentas={data}
                 usuario={userName}
                 prevMonth={prevMonth}
+                userRole={role}
+                initialGuardadas={initialGuardadas}
             />
         </div>
     );
