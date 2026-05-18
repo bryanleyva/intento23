@@ -3,14 +3,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import UserMenu from './UserMenu';
+import { useTheme } from './ThemeProvider';
 
 interface NavbarProps {
     userRole?: string;
     userName?: string | null;
     userCargo?: string;
     userPhoto?: string;
-    userCampana?: string;   // ← viene de la columna CAMPAÑA del Sheets
+    userCampana?: string;
 }
 
 interface NavItem {
@@ -20,39 +22,73 @@ interface NavItem {
     roles?: string[];
 }
 
-/**
- * Parsea la columna CAMPAÑA del usuario.
- * Acepta: "R20", "R10", "R20,R10", "R20 R10", etc.
- * Si está vacía → ADMIN ve todo, el resto asume R20 por defecto.
- */
 function parseCampaigns(campana?: string, role?: string): string[] {
     if (!campana || campana.trim() === '') {
         if (role === 'ADMIN' || role === 'JEFE_BO') return ['R20', 'R10'];
-        return ['R20']; // default para ejecutivos sin campaña asignada
+        return ['R20'];
     }
     const parsed = campana
         .toUpperCase()
         .split(/[\s,;|]+/)
         .map(s => s.trim())
         .filter(s => s === 'R20' || s === 'R10');
-
-    // Si no se pudo parsear nada válido → asumir R20
     return parsed.length > 0 ? parsed : ['R20'];
+}
+
+function detectCampaignFromPath(path: string): 'R20' | 'R10' | null {
+    const r10Paths = ['/deals-r10', '/ingresos-r10', '/mesa-control-r10', '/supervisor-r10', '/reporte-r10'];
+    if (r10Paths.some(p => path.startsWith(p))) return 'R10';
+    const r20Paths = ['/leads', '/deals', '/postventa', '/linker'];
+    if (r20Paths.some(p => path.startsWith(p))) return 'R20';
+    return null;
 }
 
 export default function Navbar({ userRole, userName, userCargo, userPhoto, userCampana }: NavbarProps) {
     const pathname = usePathname();
+    const { theme, toggleTheme } = useTheme();
 
     const isHR = userCargo?.trim().toUpperCase() === 'RECURSOS HUMANOS';
     const campaigns = parseCampaigns(userCampana, userRole);
     const hasR20 = campaigns.includes('R20');
     const hasR10 = campaigns.includes('R10');
+    const hasBoth = hasR20 && hasR10;
 
     const isPostVenta =
         userRole === 'ADMIN' ||
         userRole === 'ANDREA' ||
         userRole === 'JEFE_BO' ||
         userCargo?.trim().toUpperCase().includes('POSTVENTA');
+
+    // Initialize from path only (no localStorage on SSR)
+    const [activeCampaign, setActiveCampaign] = useState<'R20' | 'R10'>(() => {
+        const fromPath = detectCampaignFromPath(pathname);
+        if (fromPath && campaigns.includes(fromPath)) return fromPath;
+        return hasR20 ? 'R20' : 'R10';
+    });
+
+    // After hydration: restore from localStorage if no path signal
+    useEffect(() => {
+        const fromPath = detectCampaignFromPath(pathname);
+        if (fromPath && campaigns.includes(fromPath)) {
+            setActiveCampaign(fromPath);
+            return;
+        }
+        const saved = localStorage.getItem('friday-nav-campaign') as 'R20' | 'R10' | null;
+        if (saved && campaigns.includes(saved)) setActiveCampaign(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Auto-switch when navigating to a campaign-specific route
+    useEffect(() => {
+        const fromPath = detectCampaignFromPath(pathname);
+        if (fromPath && campaigns.includes(fromPath)) setActiveCampaign(fromPath);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname]);
+
+    const handleCampaignSwitch = (campaign: 'R20' | 'R10') => {
+        setActiveCampaign(campaign);
+        localStorage.setItem('friday-nav-campaign', campaign);
+    };
 
     const allNavItems: NavItem[] = [
         { name: 'Inicio',             path: '/',                 campaign: 'ALL' },
@@ -63,7 +99,7 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
         { name: 'Linker',             path: '/linker',           campaign: 'R20', roles: ['STANDAR', 'SPECIAL', 'ADMIN', 'BACKOFFICE', 'JEFE_BO'] },
         // --- R10 ---
         { name: 'Deals R10',          path: '/deals-r10',        campaign: 'R10', roles: ['STANDAR', 'ADMIN'] },
-        { name: 'Ingresos ',          path: '/ingresos-r10',     campaign: 'R10', roles: ['STANDAR', 'SPECIAL', 'ADMIN'] },
+        { name: 'Ingresos',           path: '/ingresos-r10',     campaign: 'R10', roles: ['STANDAR', 'SPECIAL', 'ADMIN'] },
         { name: 'Mesa Control R10',   path: '/mesa-control-r10', campaign: 'R10', roles: ['BACKOFFICE', 'ADMIN', 'JEFE_BO'] },
         { name: 'Supervisor R10',     path: '/supervisor-r10',   campaign: 'R10', roles: ['SPECIAL', 'ADMIN'] },
         { name: 'Reporte R10',        path: '/reporte-r10',      campaign: 'R10' },
@@ -72,25 +108,17 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
     ];
 
     const navItems = allNavItems.filter(item => {
-        // RRHH solo ve Inicio y Reporte
-        if (isHR) {
-            return item.name === 'Inicio' || item.name === 'Reporte';
-        }
+        if (isHR) return item.name === 'Inicio' || item.name === 'Reporte';
 
-        // Post Venta: lógica propia
-        if (item.name === 'Post Venta') {
-            return isPostVenta;
-        }
+        if (item.name === 'Post Venta' && !isPostVenta) return false;
 
-        // Filtrado por rol
         if (item.roles && item.roles.length > 0) {
             if (!userRole || !item.roles.includes(userRole)) return false;
         }
 
-        // Filtrado por campaña
         if (item.campaign === 'ALL') return true;
-        if (item.campaign === 'R20' && hasR20) return true;
-        if (item.campaign === 'R10' && hasR10) return true;
+        if (item.campaign === 'R20' && activeCampaign === 'R20' && hasR20) return true;
+        if (item.campaign === 'R10' && activeCampaign === 'R10' && hasR10) return true;
         return false;
     });
 
@@ -151,6 +179,42 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
                 .nav-item.r10-badge.active::after { background:#10b981; box-shadow:0 0 8px #10b981; }
                 .logo-section { display:flex; align-items:center; cursor:pointer; }
                 .logo-section:hover { transform:scale(1.02); }
+
+                /* Campaign switcher */
+                .nav-campaign-switcher {
+                    display: flex;
+                    background: rgba(255,255,255,0.04);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 10px;
+                    padding: 3px;
+                    gap: 2px;
+                }
+                .nav-campaign-btn {
+                    padding: 5px 13px;
+                    border-radius: 7px;
+                    font-size: 11px;
+                    font-weight: 800;
+                    letter-spacing: 0.5px;
+                    border: none;
+                    cursor: pointer;
+                    background: transparent;
+                    color: rgba(255,255,255,0.4);
+                    transition: all 0.2s;
+                }
+                .nav-campaign-btn:hover {
+                    color: white;
+                    background: rgba(255,255,255,0.06);
+                }
+                .nav-campaign-btn.active-r20 {
+                    background: rgba(99,102,241,0.18);
+                    color: white;
+                    box-shadow: inset 0 0 0 1px rgba(99,102,241,0.35);
+                }
+                .nav-campaign-btn.active-r10 {
+                    background: rgba(16,185,129,0.18);
+                    color: white;
+                    box-shadow: inset 0 0 0 1px rgba(16,185,129,0.35);
+                }
             `}</style>
 
             <div className="nav-container">
@@ -177,6 +241,55 @@ export default function Navbar({ userRole, userName, userCargo, userPhoto, userC
                 </nav>
 
                 <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                    {hasBoth && !isHR && (
+                        <div className="nav-campaign-switcher">
+                            <button
+                                className={`nav-campaign-btn ${activeCampaign === 'R20' ? 'active-r20' : ''}`}
+                                onClick={() => handleCampaignSwitch('R20')}
+                            >
+                                R20
+                            </button>
+                            <button
+                                className={`nav-campaign-btn ${activeCampaign === 'R10' ? 'active-r10' : ''}`}
+                                onClick={() => handleCampaignSwitch('R10')}
+                            >
+                                R10
+                            </button>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={toggleTheme}
+                        title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.45rem 0.85rem',
+                            background: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(10,30,63,0.07)',
+                            border: `1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(10,30,63,0.12)'}`,
+                            borderRadius: '999px',
+                            cursor: 'pointer',
+                            color: theme === 'dark' ? '#94a3b8' : '#374151',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            transition: 'all 0.2s',
+                            letterSpacing: '0.02em',
+                        }}
+                    >
+                        {theme === 'dark' ? (
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                        ) : (
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                            </svg>
+                        )}
+                        <span style={{ display: 'none' }} className="nav-theme-label">
+                            {theme === 'dark' ? 'Claro' : 'Oscuro'}
+                        </span>
+                    </button>
                     <UserMenu name={userName} role={userRole} cargo={userCargo} photo={userPhoto} />
                 </div>
             </div>

@@ -2,10 +2,14 @@
 
 import { doc, loadDoc } from '@/lib/google-sheets';
 
-// ─── NOMBRE DE LA HOJA NUEVA ─────────────────────────────────────────────────
 const SHEET_NAME = 'POSTVENTA_SEGUIMIENTO';
 
-// ─── TIPOS ───────────────────────────────────────────────────────────────────
+const SHEET_HEADERS = [
+    'ID', 'RUC', 'RAZON SOCIAL', 'TELEFONO', 'EJECUTIVO ORIGINAL',
+    'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'OBSERVACION',
+    'ESTADO', 'EVIDENCIA_IDS', 'USUARIO', 'FECHA',
+];
+
 export interface PostVentaObservacion {
     id: string;
     ruc: string;
@@ -14,73 +18,12 @@ export interface PostVentaObservacion {
     ejecutivoOriginal: string;
     lineas: string;
     cargoFijo: string;
-    observacion: string;
-    usuario: string;          // quien llamó (Andrea)
-    fecha: string;
-    segmento: string;
-}
-
-// ─── GUARDAR OBSERVACIÓN ─────────────────────────────────────────────────────
-export async function savePostVentaObservacion(data: {
-    ruc: string;
-    razonSocial: string;
-    telefono: string;
-    ejecutivoOriginal: string;
-    lineas: string;
-    cargoFijo: string;
     segmento: string;
     observacion: string;
+    estado: string;       // SATISFECHO | INSATISFECHO | ESCALADO | ''
+    evidenciaIds: string; // comma-separated Drive file IDs
     usuario: string;
-}): Promise<{ success: boolean; error?: string }> {
-    try {
-        await loadDoc();
-
-        // Crear hoja si no existe
-        let sheet = doc.sheetsByTitle[SHEET_NAME];
-        if (!sheet) {
-            sheet = await doc.addSheet({
-                title: SHEET_NAME,
-                headerValues: [
-                    'ID',
-                    'RUC',
-                    'RAZON SOCIAL',
-                    'TELEFONO',
-                    'EJECUTIVO ORIGINAL',
-                    'LINEAS',
-                    'CARGO FIJO',
-                    'SEGMENTO',
-                    'OBSERVACION',
-                    'USUARIO',
-                    'FECHA',
-                ],
-            });
-        }
-
-        const rows = await sheet.getRows();
-        const ids = rows.map(r => parseInt(r.get('ID'))).filter(n => !isNaN(n));
-        const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
-
-        const now = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
-
-        await sheet.addRow({
-            'ID': nextId.toString(),
-            'RUC': data.ruc,
-            'RAZON SOCIAL': data.razonSocial,
-            'TELEFONO': data.telefono,
-            'EJECUTIVO ORIGINAL': data.ejecutivoOriginal,
-            'LINEAS': data.lineas,
-            'CARGO FIJO': data.cargoFijo,
-            'SEGMENTO': data.segmento,
-            'OBSERVACION': data.observacion,
-            'USUARIO': data.usuario,
-            'FECHA': now,
-        });
-
-        return { success: true };
-    } catch (error) {
-        console.error('Error en savePostVentaObservacion:', error);
-        return { success: false, error: 'Error al guardar la observación' };
-    }
+    fecha: string;
 }
 
 function mapRow(r: any): PostVentaObservacion {
@@ -94,9 +37,93 @@ function mapRow(r: any): PostVentaObservacion {
         cargoFijo: r.get('CARGO FIJO') || '',
         segmento: r.get('SEGMENTO') || '',
         observacion: r.get('OBSERVACION') || '',
+        estado: r.get('ESTADO') || '',
+        evidenciaIds: r.get('EVIDENCIA_IDS') || '',
         usuario: r.get('USUARIO') || '',
         fecha: r.get('FECHA') || '',
     };
+}
+
+async function getOrCreateSheet() {
+    await loadDoc();
+    let sheet = doc.sheetsByTitle[SHEET_NAME];
+    if (!sheet) {
+        sheet = await doc.addSheet({ title: SHEET_NAME, headerValues: SHEET_HEADERS });
+        return sheet;
+    }
+    // Ensure new columns exist on existing sheets
+    await sheet.getRows(); // loads headerValues
+    const existing = sheet.headerValues || [];
+    const missing = SHEET_HEADERS.filter(h => !existing.includes(h));
+    if (missing.length > 0) {
+        await sheet.setHeaderRow([...existing, ...missing]);
+    }
+    return sheet;
+}
+
+// ─── GUARDAR OBSERVACIÓN ──────────────────────────────────────────────────────
+export async function savePostVentaObservacion(data: {
+    ruc: string;
+    razonSocial: string;
+    telefono: string;
+    ejecutivoOriginal: string;
+    lineas: string;
+    cargoFijo: string;
+    segmento: string;
+    observacion: string;
+    estado: string;
+    evidenciaIds?: string;
+    usuario: string;
+}): Promise<{ success: boolean; error?: string }> {
+    try {
+        const sheet = await getOrCreateSheet();
+        const rows = await sheet.getRows();
+        const ids = rows.map(r => parseInt(r.get('ID'))).filter(n => !isNaN(n));
+        const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+        const now = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+
+        await sheet.addRow({
+            'ID': nextId.toString(),
+            'RUC': data.ruc,
+            'RAZON SOCIAL': data.razonSocial,
+            'TELEFONO': data.telefono,
+            'EJECUTIVO ORIGINAL': data.ejecutivoOriginal,
+            'LINEAS': data.lineas,
+            'CARGO FIJO': data.cargoFijo,
+            'SEGMENTO': data.segmento,
+            'OBSERVACION': data.observacion,
+            'ESTADO': data.estado,
+            'EVIDENCIA_IDS': data.evidenciaIds || '',
+            'USUARIO': data.usuario,
+            'FECHA': now,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error en savePostVentaObservacion:', error);
+        return { success: false, error: 'Error al guardar la observación' };
+    }
+}
+
+// ─── ACTUALIZAR ESTADO DE UNA OBSERVACIÓN ────────────────────────────────────
+export async function updatePostVentaObservacion(
+    id: string,
+    data: { estado?: string; observacion?: string; evidenciaIds?: string }
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const sheet = await getOrCreateSheet();
+        const rows = await sheet.getRows();
+        const row = rows.find(r => r.get('ID') === id);
+        if (!row) return { success: false, error: 'Registro no encontrado' };
+        if (data.estado !== undefined) row.set('ESTADO', data.estado);
+        if (data.observacion !== undefined) row.set('OBSERVACION', data.observacion);
+        if (data.evidenciaIds !== undefined) row.set('EVIDENCIA_IDS', data.evidenciaIds);
+        await row.save();
+        return { success: true };
+    } catch (error) {
+        console.error('Error en updatePostVentaObservacion:', error);
+        return { success: false, error: 'Error al actualizar' };
+    }
 }
 
 // ─── OBTENER HISTORIAL DEL USUARIO ───────────────────────────────────────────
@@ -109,7 +136,6 @@ export async function getPostVentaHistorial(
         if (!sheet) return { success: true, data: [] };
 
         const rows = await sheet.getRows();
-
         const data: PostVentaObservacion[] = rows
             .filter(r => (r.get('USUARIO') || '').trim().toLowerCase() === usuario.trim().toLowerCase())
             .map(mapRow)
@@ -122,7 +148,7 @@ export async function getPostVentaHistorial(
     }
 }
 
-// ─── OBTENER HISTORIAL DE TODOS LOS USUARIOS (para JEFE_BO) ─────────────────
+// ─── OBTENER HISTORIAL DE TODOS (para JEFE_BO) ───────────────────────────────
 export async function getAllPostVentaHistorial(): Promise<{ success: boolean; data?: PostVentaObservacion[]; error?: string }> {
     try {
         await loadDoc();
@@ -131,7 +157,6 @@ export async function getAllPostVentaHistorial(): Promise<{ success: boolean; da
 
         const rows = await sheet.getRows();
         const data: PostVentaObservacion[] = rows.map(mapRow).reverse();
-
         return { success: true, data };
     } catch (error) {
         console.error('Error en getAllPostVentaHistorial:', error);

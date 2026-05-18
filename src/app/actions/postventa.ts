@@ -52,11 +52,10 @@ export async function getPostVentaData(): Promise<{ success: boolean; data?: Pos
 
         const rows = await sheet.getRows();
 
-        // Calculate previous month window (Lima time)
+        // Window: from 6 months ago through end of previous month (Lima time)
         const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const prevMonth = prevMonthDate.getMonth() + 1; // 1-indexed
-        const prevYear = prevMonthDate.getFullYear();
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
         const filtered = rows.filter(row => {
             const estado = (row.get('ESTADO') || '').trim().toUpperCase();
@@ -67,7 +66,7 @@ export async function getPostVentaData(): Promise<{ success: boolean; data?: Pos
             if (!rawFecha) return false;
 
             // Expected format: "DD/MM/YYYY, HH:MM:SS"
-            const datePart = rawFecha.split(',')[0].trim(); // "DD/MM/YYYY"
+            const datePart = rawFecha.split(',')[0].trim();
             const parts = datePart.split('/');
             if (parts.length < 3) return false;
 
@@ -75,9 +74,10 @@ export async function getPostVentaData(): Promise<{ success: boolean; data?: Pos
             const month = parseInt(parts[1]);
             const year = parseInt(parts[2]);
 
-            if (isNaN(month) || isNaN(year)) return false;
+            if (isNaN(day) || isNaN(month) || isNaN(year)) return false;
 
-            return month === prevMonth && year === prevYear;
+            const rowDate = new Date(year, month - 1, day);
+            return rowDate >= sixMonthsAgo && rowDate <= endOfPrevMonth;
         });
 
         const data: PostVentaRecord[] = filtered.map(row => {

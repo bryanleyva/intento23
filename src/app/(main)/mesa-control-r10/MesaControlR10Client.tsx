@@ -10,7 +10,7 @@ interface Props {
     initialData: any[];
 }
 
-const ESTADOS_TAB = ['TODOS', 'PENDIENTE', 'ACTIVO', 'RECHAZADO'] as const;
+const ESTADOS_TAB = ['TODOS', 'PENDIENTE', 'ACTIVO', 'RECHAZADO', 'EN DELIVERY', 'VENTA CAIDA'] as const;
 
 export default function MesaControlR10Client({ user, userRole, initialData }: Props) {
     const [data, setData] = useState(initialData);
@@ -59,7 +59,9 @@ export default function MesaControlR10Client({ user, userRole, initialData }: Pr
         PENDIENTE: data.filter(d => (d.estado || '').toUpperCase() === 'PENDIENTE').length,
         ACTIVO: data.filter(d => (d.estado || '').toUpperCase() === 'ACTIVO').length,
         RECHAZADO: data.filter(d => (d.estado || '').toUpperCase() === 'RECHAZADO').length,
-    };
+        'EN DELIVERY': data.filter(d => (d.estado || '').toUpperCase() === 'EN DELIVERY').length,
+        'VENTA CAIDA': data.filter(d => (d.estado || '').toUpperCase() === 'VENTA CAIDA').length,
+    } as Record<typeof ESTADOS_TAB[number], number>;
 
     const panelStyle: React.CSSProperties = {
         background: 'rgba(24,24,27,0.4)', backdropFilter: 'blur(20px)',
@@ -71,7 +73,18 @@ export default function MesaControlR10Client({ user, userRole, initialData }: Pr
         if (e === 'PENDIENTE') return { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24' };
         if (e === 'ACTIVO') return { bg: 'rgba(16,185,129,0.15)', fg: '#10b981' };
         if (e === 'RECHAZADO') return { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444' };
+        if (e === 'EN DELIVERY') return { bg: 'rgba(99,102,241,0.15)', fg: '#818cf8' };
+        if (e === 'VENTA CAIDA') return { bg: 'rgba(249,115,22,0.15)', fg: '#fb923c' };
         return { bg: 'rgba(156,163,175,0.15)', fg: '#9ca3af' };
+    };
+
+    const getOperadores = (v: any): string => {
+        if (!v.lineas || v.lineas.length === 0) return '—';
+        const ops = v.lineas
+            .filter((l: any) => l.operadorActual && l.operadorActual.trim())
+            .map((l: any) => (l.operadorActual as string).trim().toUpperCase());
+        const unique = [...new Set(ops)];
+        return unique.length > 0 ? unique.join(' / ') : '—';
     };
 
     return (
@@ -149,7 +162,7 @@ export default function MesaControlR10Client({ user, userRole, initialData }: Pr
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                    {['ID', 'Estado', 'Fecha cierre', 'Cliente', 'RUC/DNI', 'Canal', 'Líneas', 'Ejecutivo', 'Acciones'].map(h => (
+                                    {['ID', 'Estado', 'Fecha cierre', 'Cliente', 'RUC/DNI', 'Canal', 'Líneas', 'Operador', 'Backoffice', 'Ejecutivo', 'Acciones'].map(h => (
                                         <th key={h} style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                                     ))}
                                 </tr>
@@ -170,6 +183,8 @@ export default function MesaControlR10Client({ user, userRole, initialData }: Pr
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#9ca3af', fontFamily: 'monospace' }}>{v.rucDni}</td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#d1d5db' }}>{v.canalVenta}</td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#8b5cf6', fontWeight: 700 }}>{v.cantidadLineas}</td>
+                                            <td style={{ padding: '0.75rem 0.5rem', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{getOperadores(v)}</td>
+                                            <td style={{ padding: '0.75rem 0.5rem', color: v.mesaControlAsignado ? '#34d399' : '#3f3f46', fontSize: '0.8rem', fontWeight: v.mesaControlAsignado ? 600 : 400 }}>{v.mesaControlAsignado || '—'}</td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#9ca3af', fontSize: '0.8rem' }}>{v.ejecutivo}</td>
                                             <td style={{ padding: '0.75rem 0.5rem' }}>
                                                 <button onClick={() => setSelected(v)} style={{ padding: '0.35rem 0.85rem', background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: '6px', color: '#c4b5fd', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -198,7 +213,7 @@ export default function MesaControlR10Client({ user, userRole, initialData }: Pr
 }
 
 function GestionarVentaModal({ venta, onClose, onSaved, backofficeUser }: { venta: any; onClose: () => void; onSaved: () => void; backofficeUser: string }) {
-    const [nuevoEstado, setNuevoEstado] = useState<'PENDIENTE' | 'ACTIVO' | 'RECHAZADO'>(venta.estado || 'PENDIENTE');
+    const [nuevoEstado, setNuevoEstado] = useState<'PENDIENTE' | 'ACTIVO' | 'RECHAZADO' | 'EN DELIVERY' | 'VENTA CAIDA'>(venta.estado || 'PENDIENTE');
     const [observacion, setObservacion] = useState(venta.observacionBo || '');
     const [motivoRechazo, setMotivoRechazo] = useState(venta.motivoRechazo || '');
     const [saving, setSaving] = useState(false);
@@ -256,17 +271,19 @@ function GestionarVentaModal({ venta, onClose, onSaved, backofficeUser }: { vent
                 <div style={{ padding: '1.5rem 2rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
                         <label style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Cambiar estado</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-                            {(['PENDIENTE', 'ACTIVO', 'RECHAZADO'] as const).map(e => {
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {(['PENDIENTE', 'ACTIVO', 'EN DELIVERY', 'RECHAZADO', 'VENTA CAIDA'] as const).map(e => {
                                 const activo = nuevoEstado === e;
                                 const colors = e === 'PENDIENTE' ? { bg: 'rgba(251,191,36,0.15)', border: '#fbbf24' }
                                     : e === 'ACTIVO' ? { bg: 'rgba(16,185,129,0.15)', border: '#10b981' }
+                                    : e === 'EN DELIVERY' ? { bg: 'rgba(99,102,241,0.15)', border: '#818cf8' }
+                                    : e === 'VENTA CAIDA' ? { bg: 'rgba(249,115,22,0.15)', border: '#fb923c' }
                                     : { bg: 'rgba(239,68,68,0.15)', border: '#ef4444' };
                                 return (
                                     <button key={e} onClick={() => setNuevoEstado(e)} style={{
-                                        padding: '0.75rem', background: activo ? colors.bg : 'rgba(255,255,255,0.03)',
+                                        padding: '0.6rem 1rem', background: activo ? colors.bg : 'rgba(255,255,255,0.03)',
                                         border: `1px solid ${activo ? colors.border : 'rgba(255,255,255,0.08)'}`,
-                                        borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+                                        borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap',
                                     }}>{e}</button>
                                 );
                             })}

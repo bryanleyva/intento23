@@ -38,15 +38,6 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
     };
 
     const handleBaseSelection = (base: 'RYDERS' | 'ESPECIAL') => {
-        if (base === 'ESPECIAL') {
-            AppSwal.fire({
-                title: 'PRÓXIMAMENTE',
-                text: 'Esta base de datos estará disponible próximamente.',
-                icon: 'info',
-                confirmButtonColor: '#10b981'
-            });
-            return;
-        }
         setSelectedBase(base);
     };
 
@@ -63,7 +54,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
             >
                 <div>
                     <h2 className="text-3xl font-black tracking-tighter text-white uppercase" style={{ fontSize: '2.2rem', letterSpacing: '-0.03em' }}>
-                        {viewMode === 'assign' ? 'Panel de Asignación' : selectedBase === 'RYDERS' ? 'Gestión: Base Ryders' : 'Centro de Leads'}
+                        {viewMode === 'assign' ? 'Panel de Asignación' : selectedBase === 'RYDERS' ? 'Gestión: Base Ryders' : selectedBase === 'ESPECIAL' ? 'Gestión: Base Especial' : 'Centro de Leads'}
                     </h2>
                     {userCargo && (
                         <div style={{ marginTop: '0.4rem' }}>
@@ -154,11 +145,12 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
             {/* MAIN CONTENT AREA */}
             <div className="w-full">
                 {viewMode === 'manage' ? (
-                    selectedBase === 'RYDERS' ? (
+                    selectedBase === 'RYDERS' || selectedBase === 'ESPECIAL' ? (
                         <LeadManager
                             userEmail={userEmail}
                             userName={userName}
                             userRole={userRole}
+                            baseType={selectedBase}
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-700">
@@ -274,74 +266,78 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         position: 'relative',
                                         overflow: 'hidden',
                                         borderRadius: '32px',
-                                        background: 'rgba(24, 24, 27, 0.4)',
-                                        border: '1px solid #27272a',
+                                        background: 'linear-gradient(165deg, #18181b 0%, #09090b 100%)',
+                                        border: '1px solid rgba(139, 92, 246, 0.2)',
                                         padding: '3.5rem',
                                         width: '420px',
-                                        transition: 'all 0.4s',
+                                        transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
                                         display: 'flex',
                                         flexDirection: 'column',
                                         alignItems: 'center',
-                                        textAlign: 'center',
-                                        opacity: '0.7'
+                                        textAlign: 'center'
                                     }}
                                     onMouseOver={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-8px)';
-                                        e.currentTarget.style.background = 'rgba(24, 24, 27, 0.6)';
-                                        e.currentTarget.style.opacity = '1';
+                                        e.currentTarget.style.transform = 'translateY(-15px) scale(1.02)';
+                                        e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.8)';
+                                        e.currentTarget.style.boxShadow = '0 30px 60px -15px rgba(139, 92, 246, 0.25)';
                                     }}
                                     onMouseOut={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.background = 'rgba(24, 24, 27, 0.4)';
-                                        e.currentTarget.style.opacity = '0.7';
+                                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                        e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.2)';
+                                        e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.5)';
                                     }}
                                 >
-                                    {/* Locked Icon */}
                                     <div style={{
                                         width: '100px',
                                         height: '100px',
-                                        background: 'rgba(63, 63, 70, 0.2)',
+                                        background: 'rgba(139, 92, 246, 0.1)',
                                         borderRadius: '30px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         marginBottom: '2.5rem',
-                                        border: '1px solid rgba(63, 63, 70, 0.3)',
-                                        fontSize: '3.5rem'
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        fontSize: '3.5rem',
+                                        boxShadow: 'inset 0 0 20px rgba(139, 92, 246, 0.1)'
                                     }}>
-                                        🔒
+                                        ⭐
                                     </div>
 
                                     <h4 style={{
                                         fontSize: '2.4rem',
                                         fontWeight: '900',
-                                        color: '#52525b',
-                                        marginBottom: '1rem'
+                                        color: 'white',
+                                        marginBottom: '1rem',
+                                        letterSpacing: '-0.02em'
                                     }}>BASE ESPECIAL</h4>
-                                    <p style={{ color: '#52525b', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
+                                    <p style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
                                         Base de datos segmentada para campañas especiales de alto impacto.
                                     </p>
 
                                     <div style={{
                                         marginTop: '3.5rem',
-                                        background: 'rgba(39, 39, 42, 0.8)',
-                                        color: '#71717a',
+                                        background: '#8b5cf6',
+                                        color: '#fff',
                                         padding: '1rem 2.5rem',
                                         borderRadius: '16px',
                                         fontWeight: '900',
                                         fontSize: '0.9rem',
-                                        letterSpacing: '0.2em',
-                                        border: '1px solid rgba(63, 63, 70, 0.5)'
+                                        letterSpacing: '0.1em',
+                                        boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)',
+                                        transition: 'all 0.3s'
                                     }}>
-                                        PRÓXIMAMENTE
+                                        ACCEDER AHORA →
                                     </div>
 
-                                    {/* Grayscale overlay effect for locked */}
                                     <div style={{
                                         position: 'absolute',
-                                        inset: 0,
-                                        background: 'rgba(0,0,0,0.1)',
-                                        pointerEvents: 'none'
+                                        top: '-20px',
+                                        right: '-20px',
+                                        width: '100px',
+                                        height: '100px',
+                                        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
+                                        filter: 'blur(10px)'
                                     }}></div>
                                 </div>
                             </div>

@@ -503,7 +503,7 @@ export async function saveDroppedR10(ventaId: string, motivo: string, observacio
 
 export async function updateEstadoIngresadoR10(
     ventaId: string,
-    nuevoEstado: 'ACTIVO' | 'RECHAZADO' | 'PENDIENTE',
+    nuevoEstado: 'ACTIVO' | 'RECHAZADO' | 'PENDIENTE' | 'EN DELIVERY' | 'VENTA CAIDA',
     backofficeUser: string,
     observacion?: string,
     motivoRechazo?: string

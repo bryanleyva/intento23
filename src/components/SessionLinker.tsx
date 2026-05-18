@@ -542,12 +542,13 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
 
     const filteredVentas = (ventas || []).filter(v => {
         const isAdmin = currentUserRole === 'ADMIN';
+        const isJefeBO = currentUserRole === 'JEFE_BO';
         const isBackOffice = currentUserCargo?.trim().toUpperCase() === 'BACK OFFICE';
         const isSupervisorUser = currentUserCargo?.trim().toUpperCase().includes('SUPERVISOR');
 
         // VISIBILITY RULES
-        // 1. Admin & Back Office: See ALL
-        if (isAdmin || isBackOffice) {
+        // 1. Admin, Back Office & JEFE_BO: See ALL
+        if (isAdmin || isBackOffice || isJefeBO) {
             if (isBackOffice && v.estado === 'PENDIENTE APROBACION') return false;
         }
         // 2. Supervisor: See created by them OR assigned to their team
@@ -1648,6 +1649,7 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                                 <th className="table-header">Detalle</th>
                                 <th className="table-header">Proceso</th>
                                 {!isStandardEjecutivo && <th className="table-header">Ejecutivo</th>}
+                                {(currentUserRole === 'ADMIN' || currentUserRole === 'JEFE_BO') && <th className="table-header">Backoffice</th>}
                                 <th className="table-header">Cargo Fijo</th>
                                 <th className="table-header">Líneas</th>
                                 <th className="table-header">Detalles</th>
@@ -1787,6 +1789,13 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                                                     <span style={{ fontSize: '13px', fontWeight: '950', color: '#d4d4d8', textTransform: 'uppercase' }}>{v.ejecutivo}</span>
                                                     <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#52525b', marginTop: '1px' }}>{v.supervisor}</span>
                                                 </div>
+                                            </td>
+                                        )}
+                                        {(currentUserRole === 'ADMIN' || currentUserRole === 'JEFE_BO') && (
+                                            <td className="table-cell">
+                                                <span style={{ fontSize: '12px', color: v.mesaAsignada ? '#a78bfa' : '#3f3f46', fontWeight: v.mesaAsignada ? 700 : 400, whiteSpace: 'nowrap' }}>
+                                                    {v.mesaAsignada || '—'}
+                                                </span>
                                             </td>
                                         )}
                                         <td className="table-cell">

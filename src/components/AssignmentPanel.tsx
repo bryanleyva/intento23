@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getExecutiveAssignmentStats, assignLeadsByCriteria } from '@/app/actions/leads';
+import { getSpecialAssignmentStats, assignSpecialLeadsByCriteria } from '@/app/actions/leads-special-gestion';
 import { AppSwal } from '@/lib/sweetalert';
 
 interface AssignmentPanelProps {
@@ -10,6 +11,7 @@ interface AssignmentPanelProps {
 }
 
 export default function AssignmentPanel({ userRole, userName }: AssignmentPanelProps) {
+    const [activeBase, setActiveBase] = useState<'RYDERS' | 'ESPECIAL'>('RYDERS');
     const [stats, setStats] = useState<any[]>([]);
     const [stock, setStock] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
@@ -23,11 +25,13 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [activeBase]);
 
     const loadData = async () => {
         setLoading(true);
-        const res = await getExecutiveAssignmentStats(userRole, userName);
+        const res = activeBase === 'ESPECIAL'
+            ? await getSpecialAssignmentStats(userRole, userName)
+            : await getExecutiveAssignmentStats(userRole, userName);
         if (res.success) {
             setStats(res.stats || []);
             setStock(res.stock || {});
@@ -86,7 +90,9 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
         if (!confirm.isConfirmed) return;
 
         setAssigning(true);
-        const res = await assignLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName);
+        const res = activeBase === 'ESPECIAL'
+            ? await assignSpecialLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName)
+            : await assignLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName);
         setAssigning(false);
 
         if (res.success) {
@@ -110,13 +116,29 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
     return (
         <div className="assignmentContainer font-outfit">
 
+            {/* Base Selector */}
+            <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '1rem', padding: '4px', width: 'fit-content' }}>
+                <button
+                    onClick={() => setActiveBase('RYDERS')}
+                    style={{ padding: '8px 20px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900, cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s', background: activeBase === 'RYDERS' ? 'rgba(16,185,129,0.15)' : 'transparent', color: activeBase === 'RYDERS' ? '#34d399' : '#64748b', boxShadow: activeBase === 'RYDERS' ? 'inset 0 0 0 1px rgba(16,185,129,0.3)' : 'none' }}
+                >
+                    🚀 Base Ryders
+                </button>
+                <button
+                    onClick={() => setActiveBase('ESPECIAL')}
+                    style={{ padding: '8px 20px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900, cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s', background: activeBase === 'ESPECIAL' ? 'rgba(139,92,246,0.15)' : 'transparent', color: activeBase === 'ESPECIAL' ? '#a78bfa' : '#64748b', boxShadow: activeBase === 'ESPECIAL' ? 'inset 0 0 0 1px rgba(139,92,246,0.3)' : 'none' }}
+                >
+                    ⭐ Base Especial
+                </button>
+            </div>
+
             {/* Header / Summary */}
             <div className="assignmentHeader">
                 <div className="headerLeft">
-                    <h1 className="headerTitle">Control de Asignación</h1>
+                    <h1 className="headerTitle">{activeBase === 'ESPECIAL' ? 'Asignación Base Especial' : 'Control de Asignación'}</h1>
                     <p className="headerSubtitle">
-                        <span className="stockIndicator"></span>
-                        {totalAvailable} Leads disponibles en Stock Total
+                        <span className="stockIndicator" style={{ background: activeBase === 'ESPECIAL' ? '#8b5cf6' : '#10b981', boxShadow: activeBase === 'ESPECIAL' ? '0 0 10px #8b5cf6' : '0 0 10px #10b981' }}></span>
+                        {totalAvailable} cuentas disponibles en Stock
                     </p>
                 </div>
 

@@ -5,7 +5,18 @@
       "Bash(Select-Object FullName)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\linker\" -Force)",
       "Bash(npx tsc *)",
-      "Bash(ls -la \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\mesa-control-r10\\\\\\\\\")"
+      "Bash(ls -la \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\mesa-control-r10\\\\\\\\\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(Find c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src -type f -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\base-special\")",
+      "PowerShell(Remove-Item -Recurse -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\\\(main\\)\\\\base-special\" -Confirm:$false)",
+      "PowerShell(cd \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\"; $out = npx tsc --noEmit 2>&1; $filtered = $out | Where-Object { $_ -notmatch \"actions\\\\.ts\\\\\\(\" }; Write-Host \\($filtered | Out-String\\))",
+      "PowerShell(Remove-Item -Recurse -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\.next\" -Confirm:$false -ErrorAction SilentlyContinue)",
+      "PowerShell(cd \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\"; $out = npx tsc --noEmit 2>&1; $filtered = $out | Where-Object { $_ -notmatch \"actions\\\\.ts\\\\\\(\" }; if \\($filtered\\) { Write-Host \\($filtered | Out-String\\) } else { Write-Host \"Sin errores nuevos\" })",
+      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\actions\\\\leads-special.ts\" -Confirm:$false)"
     ]
   }
 }

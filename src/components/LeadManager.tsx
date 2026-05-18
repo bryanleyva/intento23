@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getNextLead, saveLead, getAgendamientos, getLeadByRuc, promoteToPipeline, fetchRucData } from '@/app/actions/leads';
+import { getNextSpecialLead, saveSpecialLead, getSpecialAgendamientos, getSpecialLeadByRuc, promoteToPipelineFromSpecial, createManualSpecialLead } from '@/app/actions/leads-special-gestion';
 import AddRegistryModal from './AddRegistryModal';
 import { AppSwal } from '@/lib/sweetalert';
 
@@ -10,9 +11,11 @@ interface LeadFormProps {
     userEmail: string;
     userName: string;
     userRole?: string;
+    baseType?: 'RYDERS' | 'ESPECIAL';
 }
 
-export default function LeadManager({ userEmail, userName, userRole }: LeadFormProps) {
+export default function LeadManager({ userEmail, userName, userRole, baseType = 'RYDERS' }: LeadFormProps) {
+    const isSpecial = baseType === 'ESPECIAL';
     const [lead, setLead] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -42,7 +45,9 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
     const [searchTerm, setSearchTerm] = useState('');
 
     const loadAgendamientos = async () => {
-        const res = await getAgendamientos(userName, userRole || 'STANDAR');
+        const res = isSpecial
+            ? await getSpecialAgendamientos(userName, userRole || 'STANDAR')
+            : await getAgendamientos(userName, userRole || 'STANDAR');
         if (res.success) {
             setAgendamientos(res.data);
         }
@@ -80,7 +85,9 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
         setLoading(true);
         setSaving(false); // CRITICAL: Reset saving state for the new lead
         setMessage(null);
-        const res = await getNextLead(userEmail, userName);
+        const res = isSpecial
+            ? await getNextSpecialLead(userEmail, userName)
+            : await getNextLead(userEmail, userName);
 
         if (res.success) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -116,7 +123,7 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
         setLoading(true);
         setSaving(false); // Safety reset
         setMessage(null);
-        const res = await getLeadByRuc(ruc);
+        const res = isSpecial ? await getSpecialLeadByRuc(ruc) : await getLeadByRuc(ruc);
 
         if (res.success && res.data) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -152,7 +159,7 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
         setLoading(true);
         setSaving(false); // Safety reset
         setMessage({ text: 'Cargando agendado...', type: 'success' });
-        const res = await getLeadByRuc(ruc);
+        const res = isSpecial ? await getSpecialLeadByRuc(ruc) : await getLeadByRuc(ruc);
 
         if (res.success && res.data) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -250,15 +257,16 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
             userRole: userRole
         };
 
-        const res = await saveLead(lead.id, dataToSave);
+        const res = isSpecial
+            ? await saveSpecialLead(lead.id, dataToSave)
+            : await saveLead(lead.id, dataToSave);
 
         if (res.success) {
             // Check if we need to promote to pipeline
             if (formState.estado === 'INTERESADO') {
-                const promoteRes = await promoteToPipeline({
-                    ...lead,
-                    ...formState // Ensure we pass latest form data
-                }, userName);
+                const promoteRes = isSpecial
+                    ? await promoteToPipelineFromSpecial({ ...lead, ...formState }, userName)
+                    : await promoteToPipeline({ ...lead, ...formState }, userName);
 
                 if (!promoteRes.success) {
                     // Non-blocking error, just warn
@@ -367,18 +375,20 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
 
     return (
         <>
-            <AddRegistryModal
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                currentUser={userName}
-                onSuccess={(ruc) => {
-                    if (ruc) {
-                        loadSpecificLead(ruc);
-                    } else {
-                        loadNext();
-                    }
-                }}
-            />
+            {!isSpecial && (
+                <AddRegistryModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    currentUser={userName}
+                    onSuccess={(ruc) => {
+                        if (ruc) {
+                            loadSpecificLead(ruc);
+                        } else {
+                            loadNext();
+                        }
+                    }}
+                />
+            )}
 
             {/* Contenedor de Scroll Horizontal para mantener los 3 paneles en línea en cualquier pantalla */}
             <div
@@ -484,20 +494,22 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
                                             Solicita una carga al administrador o agrega un registro manualmente.
                                         </p>
                                     </div>
-                                    <button
-                                        onClick={() => setIsAddModalOpen(true)}
-                                        className="action-btn-premium"
-                                        style={{
-                                            marginTop: '20px',
-                                            padding: '0 30px',
-                                            height: '3.5rem',
-                                            fontSize: '12px',
-                                            fontWeight: '950',
-                                            background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
-                                        }}
-                                    >
-                                        + AGREGAR PRIMER REGISTRO
-                                    </button>
+                                    {!isSpecial && (
+                                        <button
+                                            onClick={() => setIsAddModalOpen(true)}
+                                            className="action-btn-premium"
+                                            style={{
+                                                marginTop: '20px',
+                                                padding: '0 30px',
+                                                height: '3.5rem',
+                                                fontSize: '12px',
+                                                fontWeight: '950',
+                                                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
+                                            }}
+                                        >
+                                            + AGREGAR PRIMER REGISTRO
+                                        </button>
+                                    )}
                                 </div>
                             </>
                         ) : (
@@ -514,13 +526,15 @@ export default function LeadManager({ userEmail, userName, userRole }: LeadFormP
                                         <h2 style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#fff' }}>GESTIÓN DE OPORTUNIDAD</h2>
                                         <p style={{ fontSize: '10px', color: '#10b981', margin: '4px 0 0 0', fontWeight: '900', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Leads v2.0 • Prospección Activa</p>
                                     </div>
-                                    <button
-                                        onClick={() => setIsAddModalOpen(true)}
-                                        className="action-btn-premium"
-                                        style={{ height: '3rem', fontSize: '11px', fontWeight: '900' }}
-                                    >
-                                        + NUEVO REGISTRO
-                                    </button>
+                                    {!isSpecial && (
+                                        <button
+                                            onClick={() => setIsAddModalOpen(true)}
+                                            className="action-btn-premium"
+                                            style={{ height: '3rem', fontSize: '11px', fontWeight: '900' }}
+                                        >
+                                            + NUEVO REGISTRO
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>

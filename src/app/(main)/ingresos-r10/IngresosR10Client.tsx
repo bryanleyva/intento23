@@ -46,7 +46,18 @@ export default function IngresosR10Client({ ejecutivo, userRole, initialData }: 
         if (e === 'PENDIENTE') return { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24' };
         if (e === 'ACTIVO') return { bg: 'rgba(16,185,129,0.15)', fg: '#10b981' };
         if (e === 'RECHAZADO') return { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444' };
+        if (e === 'EN DELIVERY') return { bg: 'rgba(99,102,241,0.15)', fg: '#818cf8' };
+        if (e === 'VENTA CAIDA') return { bg: 'rgba(249,115,22,0.15)', fg: '#fb923c' };
         return { bg: 'rgba(156,163,175,0.15)', fg: '#9ca3af' };
+    };
+
+    const getOperadores = (v: any): string => {
+        if (!v.lineas || v.lineas.length === 0) return '—';
+        const ops = v.lineas
+            .filter((l: any) => l.operadorActual && l.operadorActual.trim())
+            .map((l: any) => (l.operadorActual as string).trim().toUpperCase());
+        const unique = [...new Set(ops)];
+        return unique.length > 0 ? unique.join(' / ') : '—';
     };
 
     const totalLineas = data.reduce((sum, i) => sum + (i.cantidadLineas || 0), 0);
@@ -98,7 +109,7 @@ export default function IngresosR10Client({ ejecutivo, userRole, initialData }: 
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                    {['ID', 'Estado', 'Fecha cierre', 'Cliente', 'RUC/DNI', 'Canal', 'Entrega', 'Líneas', 'Ejecutivo'].map(h => (
+                                    {['ID', 'Estado', 'Fecha cierre', 'Cliente', 'RUC/DNI', 'Canal', 'Entrega', 'Líneas', 'Operador', 'Ejecutivo'].map(h => (
                                         <th key={h} style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                                     ))}
                                 </tr>
@@ -126,6 +137,7 @@ export default function IngresosR10Client({ ejecutivo, userRole, initialData }: 
                                                 </span>
                                             </td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#10b981', fontWeight: 700 }}>{v.cantidadLineas}</td>
+                                            <td style={{ padding: '0.75rem 0.5rem', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{getOperadores(v)}</td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#9ca3af', fontSize: '0.8rem' }}>{v.ejecutivo}</td>
                                         </tr>
                                     );
@@ -154,6 +166,8 @@ function IngresoDetailModal({ venta, onClose }: { venta: any; onClose: () => voi
         if (e === 'PENDIENTE') return { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24' };
         if (e === 'ACTIVO') return { bg: 'rgba(16,185,129,0.15)', fg: '#10b981' };
         if (e === 'RECHAZADO') return { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444' };
+        if (e === 'EN DELIVERY') return { bg: 'rgba(99,102,241,0.15)', fg: '#818cf8' };
+        if (e === 'VENTA CAIDA') return { bg: 'rgba(249,115,22,0.15)', fg: '#fb923c' };
         return { bg: 'rgba(156,163,175,0.15)', fg: '#9ca3af' };
     })();
 

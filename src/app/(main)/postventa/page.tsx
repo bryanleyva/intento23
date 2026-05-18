@@ -12,11 +12,14 @@ function isPostVentaAuthorized(role: string, cargo: string): boolean {
     return (cargo || '').trim().toUpperCase().includes('POSTVENTA');
 }
 
-function getPrevMonthLabel(): string {
+function getDateRangeLabel(): string {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const monthName = prev.toLocaleString('es-PE', { month: 'long' }).toUpperCase();
-    return `${monthName} ${prev.getFullYear()}`;
+    const oldest = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    const fmtOpts: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
+    const prevLabel = prev.toLocaleString('es-PE', fmtOpts).toUpperCase();
+    const oldestLabel = oldest.toLocaleString('es-PE', fmtOpts).toUpperCase();
+    return `${oldestLabel} — ${prevLabel}`;
 }
 
 export default async function PostVentaPage() {
@@ -45,10 +48,10 @@ export default async function PostVentaPage() {
         );
     }
 
-    const prevMonth = getPrevMonthLabel();
+    const rangeLabel = getDateRangeLabel();
     const isJefeBO = role === 'JEFE_BO';
 
-    // JEFE_BO: solo ve el historial de todos — no necesita la lista de cuentas
+    // JEFE_BO: only sees the full historial
     if (isJefeBO) {
         const allHistResult = await getAllPostVentaHistorial();
         const allHistorial = allHistResult.data ?? [];
@@ -57,10 +60,8 @@ export default async function PostVentaPage() {
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                     <div style={{
                         display: 'inline-block',
-                        background: 'rgba(16,185,129,0.12)',
-                        border: '1px solid rgba(16,185,129,0.3)',
-                        color: '#34d399',
-                        fontSize: '0.7rem', fontWeight: 900,
+                        background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+                        color: '#34d399', fontSize: '0.7rem', fontWeight: 900,
                         letterSpacing: '0.15em', textTransform: 'uppercase',
                         padding: '5px 14px', borderRadius: '999px', marginBottom: '1rem'
                     }}>
@@ -70,13 +71,13 @@ export default async function PostVentaPage() {
                         Registros de Gestión
                     </h1>
                     <p style={{ color: '#475569', fontSize: '0.9rem', margin: 0 }}>
-                        {allHistorial.length} observaciones registradas en total
+                        {allHistorial.length} observaciones · {rangeLabel}
                     </p>
                 </div>
                 <PostVentaGestion
                     cuentas={[]}
                     usuario={userName}
-                    prevMonth={prevMonth}
+                    rangeLabel={rangeLabel}
                     userRole={role}
                     allHistorial={allHistorial}
                 />
@@ -84,25 +85,33 @@ export default async function PostVentaPage() {
         );
     }
 
-    // Usuarios normales (ANDREA, ADMIN, cargo POSTVENTA)
+    // Regular users (ANDREA, ADMIN, cargo POSTVENTA)
     const result = await getPostVentaData();
     const data = result.success ? (result.data ?? []) : [];
 
-    // Cargar historial para reconstruir qué cuentas ya guardó
+    // Compute which accounts are "done" based on latest estado per RUC
     const histResult = await getPostVentaHistorial(userName);
-    const histRucs = new Set((histResult.data ?? []).map(h => h.ruc));
-    const initialGuardadas = data.filter(c => histRucs.has(c.ruc)).map(c => c.ruc);
+    const histList = histResult.data ?? [];
+    // histList is reversed (newest first) — first occurrence per RUC = latest
+    const latestEstadoByRuc = new Map<string, string>();
+    for (const h of histList) {
+        if (!latestEstadoByRuc.has(h.ruc)) latestEstadoByRuc.set(h.ruc, h.estado || '');
+    }
+    // Only SATISFECHO and ESCALADO count as "done" (INSATISFECHO stays in queue)
+    const initialGuardadas = data
+        .filter(c => {
+            const est = latestEstadoByRuc.get(c.ruc) || '';
+            return est === 'SATISFECHO' || est === 'ESCALADO';
+        })
+        .map(c => c.ruc);
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
-            {/* HEADER DE PÁGINA */}
             <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                 <div style={{
                     display: 'inline-block',
-                    background: 'rgba(16,185,129,0.12)',
-                    border: '1px solid rgba(16,185,129,0.3)',
-                    color: '#34d399',
-                    fontSize: '0.7rem', fontWeight: 900,
+                    background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+                    color: '#34d399', fontSize: '0.7rem', fontWeight: 900,
                     letterSpacing: '0.15em', textTransform: 'uppercase',
                     padding: '5px 14px', borderRadius: '999px', marginBottom: '1rem'
                 }}>
@@ -112,8 +121,7 @@ export default async function PostVentaPage() {
                     Gestión de Cuentas Activadas
                 </h1>
                 <p style={{ color: '#475569', fontSize: '0.9rem', margin: 0 }}>
-                    Período: <strong style={{ color: '#94a3b8' }}>{prevMonth}</strong>
-                    {' · '}{data.length} cuentas para gestionar
+                    {rangeLabel} · {data.length} cuentas
                 </p>
             </div>
 
@@ -130,7 +138,7 @@ export default async function PostVentaPage() {
             <PostVentaGestion
                 cuentas={data}
                 usuario={userName}
-                prevMonth={prevMonth}
+                rangeLabel={rangeLabel}
                 userRole={role}
                 initialGuardadas={initialGuardadas}
             />
