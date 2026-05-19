@@ -27,6 +27,16 @@ function getStatusColor(status: string) {
     return '#3b82f6';
 }
 
+interface BaseStat {
+    name: string;
+    color: string;
+    emoji: string;
+    interesados: number;
+    lineas: number;
+    noInteresados: number;
+    pendientes: number;
+}
+
 interface ReportDashboardProps {
     rankingData: any[];
     supRankingData?: any[];
@@ -38,6 +48,7 @@ interface ReportDashboardProps {
     goal: number;
     selectedMonth: number;
     selectedYear: number;
+    baseStats?: BaseStat[];
 }
 
 const MONTHS = [
@@ -57,7 +68,7 @@ const MONTHS = [
 
 const YEARS = [2024, 2025, 2026];
 
-export default function ReportDashboard({ rankingData, supRankingData, rawVentas = [], reportData, isStandard, userRole, userName, goal, selectedMonth, selectedYear }: ReportDashboardProps) {
+export default function ReportDashboard({ rankingData, supRankingData, rawVentas = [], reportData, isStandard, userRole, userName, goal, selectedMonth, selectedYear, baseStats = [] }: ReportDashboardProps) {
     const [selectedView, setSelectedView] = useState<'COMERCIAL' | 'GERENCIAL'>('COMERCIAL');
     const [showModal, setShowModal] = useState(false);
     const [showAccountsTable, setShowAccountsTable] = useState(false);
@@ -320,7 +331,188 @@ export default function ReportDashboard({ rankingData, supRankingData, rawVentas
                 <StatusLegend />
             </div>
 
-            <div style={{ marginTop: '3rem', padding: '0 2rem' }}>
+            {/* Origen de Prospectos por Base */}
+            {baseStats.length > 0 && (
+                <div style={{ marginTop: '4rem', padding: '0 2rem' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                        <h2 style={{
+                            color: 'white',
+                            fontSize: '2rem',
+                            fontWeight: 950,
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.02em',
+                            margin: 0,
+                        }}>
+                            Origen de Prospectos
+                        </h2>
+                        <p style={{ color: '#52525b', fontSize: '0.85rem', fontWeight: 700, marginTop: '0.5rem', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                            Estado acumulado de gestión por base
+                        </p>
+                    </div>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: '1.5rem',
+                    }}>
+                        {baseStats.map((base) => {
+                            const totalGestionados = base.interesados + base.noInteresados + base.pendientes;
+                            const conversionRate = totalGestionados > 0
+                                ? Math.round((base.interesados / totalGestionados) * 100)
+                                : 0;
+
+                            return (
+                                <div key={base.name} style={{
+                                    position: 'relative',
+                                    background: 'rgba(9,9,11,0.7)',
+                                    border: `1px solid ${base.color}30`,
+                                    borderRadius: '2rem',
+                                    padding: '2rem',
+                                    overflow: 'hidden',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: `0 0 40px ${base.color}10`,
+                                }}>
+                                    {/* Decoración de fondo */}
+                                    <div style={{
+                                        position: 'absolute', top: '-30px', right: '-30px',
+                                        width: '130px', height: '130px',
+                                        background: `radial-gradient(circle, ${base.color}25 0%, transparent 70%)`,
+                                        filter: 'blur(15px)',
+                                        pointerEvents: 'none',
+                                    }} />
+
+                                    {/* Header de la tarjeta */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.8rem' }}>
+                                        <div style={{
+                                            width: '52px', height: '52px',
+                                            background: `${base.color}18`,
+                                            border: `1px solid ${base.color}40`,
+                                            borderRadius: '1.2rem',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '1.6rem',
+                                        }}>
+                                            {base.emoji}
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'white', fontWeight: 900, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                {base.name}
+                                            </div>
+                                            <div style={{ color: '#52525b', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                                                {totalGestionados} gestionados
+                                            </div>
+                                        </div>
+                                        {/* Tasa de conversión */}
+                                        <div style={{
+                                            marginLeft: 'auto',
+                                            background: `${base.color}18`,
+                                            border: `1px solid ${base.color}35`,
+                                            borderRadius: '999px',
+                                            padding: '0.3rem 1rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 900,
+                                            color: base.color,
+                                        }}>
+                                            {conversionRate}% conv.
+                                        </div>
+                                    </div>
+
+                                    {/* Stats grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                        {/* INTERESADOS */}
+                                        <div style={{
+                                            background: 'rgba(16,185,129,0.08)',
+                                            border: '1px solid rgba(16,185,129,0.2)',
+                                            borderRadius: '1.2rem',
+                                            padding: '1.2rem',
+                                        }}>
+                                            <div style={{ color: '#52525b', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+                                                Interesados
+                                            </div>
+                                            <div style={{ color: '#34d399', fontSize: '2rem', fontWeight: 950, lineHeight: 1 }}>
+                                                {base.interesados}
+                                            </div>
+                                            <div style={{ color: '#34d399', fontSize: '0.7rem', fontWeight: 700, marginTop: '0.3rem', opacity: 0.7 }}>
+                                                → Pipeline
+                                            </div>
+                                        </div>
+
+                                        {/* LINEAS */}
+                                        <div style={{
+                                            background: `${base.color}08`,
+                                            border: `1px solid ${base.color}20`,
+                                            borderRadius: '1.2rem',
+                                            padding: '1.2rem',
+                                        }}>
+                                            <div style={{ color: '#52525b', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+                                                Líneas Potenciales
+                                            </div>
+                                            <div style={{ color: base.color, fontSize: '2rem', fontWeight: 950, lineHeight: 1 }}>
+                                                {base.lineas}
+                                            </div>
+                                            <div style={{ color: base.color, fontSize: '0.7rem', fontWeight: 700, marginTop: '0.3rem', opacity: 0.7 }}>
+                                                de interesados
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        {/* NO INTERESADOS */}
+                                        <div style={{
+                                            background: 'rgba(239,68,68,0.07)',
+                                            border: '1px solid rgba(239,68,68,0.18)',
+                                            borderRadius: '1.2rem',
+                                            padding: '1.2rem',
+                                        }}>
+                                            <div style={{ color: '#52525b', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+                                                No Interesados
+                                            </div>
+                                            <div style={{ color: '#f87171', fontSize: '2rem', fontWeight: 950, lineHeight: 1 }}>
+                                                {base.noInteresados}
+                                            </div>
+                                            <div style={{ color: '#f87171', fontSize: '0.7rem', fontWeight: 700, marginTop: '0.3rem', opacity: 0.7 }}>
+                                                descartados
+                                            </div>
+                                        </div>
+
+                                        {/* EN GESTIÓN */}
+                                        <div style={{
+                                            background: 'rgba(251,191,36,0.07)',
+                                            border: '1px solid rgba(251,191,36,0.18)',
+                                            borderRadius: '1.2rem',
+                                            padding: '1.2rem',
+                                        }}>
+                                            <div style={{ color: '#52525b', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+                                                En Gestión
+                                            </div>
+                                            <div style={{ color: '#fbbf24', fontSize: '2rem', fontWeight: 950, lineHeight: 1 }}>
+                                                {base.pendientes}
+                                            </div>
+                                            <div style={{ color: '#fbbf24', fontSize: '0.7rem', fontWeight: 700, marginTop: '0.3rem', opacity: 0.7 }}>
+                                                pendientes
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Barra de progreso de conversión */}
+                                    <div style={{ marginTop: '1.5rem' }}>
+                                        <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '999px', overflow: 'hidden' }}>
+                                            <div style={{
+                                                height: '100%',
+                                                width: `${conversionRate}%`,
+                                                background: `linear-gradient(90deg, ${base.color}80, ${base.color})`,
+                                                borderRadius: '999px',
+                                                transition: 'width 1s ease',
+                                            }} />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div style={{ marginTop: '4rem', padding: '0 2rem' }}>
                 <h2 style={{
                     color: 'white',
                     fontSize: '2rem',

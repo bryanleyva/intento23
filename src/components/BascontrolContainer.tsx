@@ -16,7 +16,7 @@ interface Props {
 
 export default function BascontrolContainer({ userEmail, userName, userRole, userCargo, userSupervisor }: Props) {
     const [viewMode, setViewMode] = useState<'manage' | 'track' | 'assign'>(userRole === 'ADMIN' ? 'track' : 'manage');
-    const [selectedBase, setSelectedBase] = useState<'RYDERS' | 'ESPECIAL' | null>(null);
+    const [selectedBase, setSelectedBase] = useState<'RYDERS' | 'ESPECIAL' | 'LINDA' | null>(null);
 
     const handleViewChange = async (newMode: 'manage' | 'track' | 'assign') => {
         if (newMode === 'manage' && userRole === 'ADMIN') {
@@ -37,9 +37,19 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
         setViewMode(newMode);
     };
 
-    const handleBaseSelection = (base: 'RYDERS' | 'ESPECIAL') => {
+    const handleBaseSelection = (base: 'RYDERS' | 'ESPECIAL' | 'LINDA') => {
         setSelectedBase(base);
     };
+
+    const headerTitle = viewMode === 'assign'
+        ? 'Panel de Asignación'
+        : selectedBase === 'RYDERS'
+            ? 'Gestión: Base Ryders'
+            : selectedBase === 'ESPECIAL'
+                ? 'Gestión: Base Especial'
+                : selectedBase === 'LINDA'
+                    ? 'Gestión: Base Linda'
+                    : 'Centro de Leads';
 
     return (
         <div className="w-full py-2 animate-in fade-in duration-500" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -54,7 +64,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
             >
                 <div>
                     <h2 className="text-3xl font-black tracking-tighter text-white uppercase" style={{ fontSize: '2.2rem', letterSpacing: '-0.03em' }}>
-                        {viewMode === 'assign' ? 'Panel de Asignación' : selectedBase === 'RYDERS' ? 'Gestión: Base Ryders' : selectedBase === 'ESPECIAL' ? 'Gestión: Base Especial' : 'Centro de Leads'}
+                        {headerTitle}
                     </h2>
                     {userCargo && (
                         <div style={{ marginTop: '0.4rem' }}>
@@ -125,7 +135,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                             </button>
                             <button
                                 onClick={() => handleViewChange('assign')}
-                                className={`btn-toggle ${viewMode === 'assign' ? 'active-track' : 'inactive'}`} // Reusing track color (emerald)
+                                className={`btn-toggle ${viewMode === 'assign' ? 'active-track' : 'inactive'}`}
                                 style={{ borderRadius: '12px' }}
                             >
                                 ASIGNACIÓN
@@ -145,7 +155,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
             {/* MAIN CONTENT AREA */}
             <div className="w-full">
                 {viewMode === 'manage' ? (
-                    selectedBase === 'RYDERS' || selectedBase === 'ESPECIAL' ? (
+                    selectedBase === 'RYDERS' || selectedBase === 'ESPECIAL' || selectedBase === 'LINDA' ? (
                         <LeadManager
                             userEmail={userEmail}
                             userName={userName}
@@ -154,7 +164,6 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-700">
-                            {/* ... same selection UI ... */}
                             <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
                                 <h3 style={{
                                     fontSize: '3rem',
@@ -183,7 +192,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         background: 'linear-gradient(165deg, #18181b 0%, #09090b 100%)',
                                         border: '1px solid rgba(16, 185, 129, 0.2)',
                                         padding: '3.5rem',
-                                        width: '420px',
+                                        width: '380px',
                                         transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                                         boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
                                         display: 'flex',
@@ -191,7 +200,6 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         alignItems: 'center',
                                         textAlign: 'center'
                                     }}
-                                    className="group-card-premium"
                                     onMouseOver={(e) => {
                                         e.currentTarget.style.transform = 'translateY(-15px) scale(1.02)';
                                         e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.8)';
@@ -203,7 +211,6 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.5)';
                                     }}
                                 >
-                                    {/* Icon Container */}
                                     <div style={{
                                         width: '100px',
                                         height: '100px',
@@ -219,18 +226,10 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                     }}>
                                         🚀
                                     </div>
-
-                                    <h4 style={{
-                                        fontSize: '2.4rem',
-                                        fontWeight: '900',
-                                        color: 'white',
-                                        marginBottom: '1rem',
-                                        letterSpacing: '-0.02em'
-                                    }}>BASE RYDERS</h4>
+                                    <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: 'white', marginBottom: '1rem', letterSpacing: '-0.02em' }}>BASE RYDERS</h4>
                                     <p style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
                                         Acceso completo a la base de datos principal para gestión de leads activos.
                                     </p>
-
                                     <div style={{
                                         marginTop: '3.5rem',
                                         background: '#10b981',
@@ -241,21 +240,15 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         fontSize: '0.9rem',
                                         letterSpacing: '0.1em',
                                         boxShadow: '0 8px 20px rgba(16, 185, 129, 0.4)',
-                                        transition: 'all 0.3s'
                                     }}>
                                         ACCEDER AHORA →
                                     </div>
-
-                                    {/* Decoration */}
                                     <div style={{
-                                        position: 'absolute',
-                                        top: '-20px',
-                                        right: '-20px',
-                                        width: '100px',
-                                        height: '100px',
+                                        position: 'absolute', top: '-20px', right: '-20px',
+                                        width: '100px', height: '100px',
                                         background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%)',
                                         filter: 'blur(10px)'
-                                    }}></div>
+                                    }} />
                                 </div>
 
                                 {/* Card 2: BASE ESPECIAL */}
@@ -269,7 +262,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         background: 'linear-gradient(165deg, #18181b 0%, #09090b 100%)',
                                         border: '1px solid rgba(139, 92, 246, 0.2)',
                                         padding: '3.5rem',
-                                        width: '420px',
+                                        width: '380px',
                                         transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                                         boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
                                         display: 'flex',
@@ -303,18 +296,10 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                     }}>
                                         ⭐
                                     </div>
-
-                                    <h4 style={{
-                                        fontSize: '2.4rem',
-                                        fontWeight: '900',
-                                        color: 'white',
-                                        marginBottom: '1rem',
-                                        letterSpacing: '-0.02em'
-                                    }}>BASE ESPECIAL</h4>
+                                    <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: 'white', marginBottom: '1rem', letterSpacing: '-0.02em' }}>BASE ESPECIAL</h4>
                                     <p style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
                                         Base de datos segmentada para campañas especiales de alto impacto.
                                     </p>
-
                                     <div style={{
                                         marginTop: '3.5rem',
                                         background: '#8b5cf6',
@@ -325,20 +310,85 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         fontSize: '0.9rem',
                                         letterSpacing: '0.1em',
                                         boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)',
-                                        transition: 'all 0.3s'
                                     }}>
                                         ACCEDER AHORA →
                                     </div>
-
                                     <div style={{
-                                        position: 'absolute',
-                                        top: '-20px',
-                                        right: '-20px',
-                                        width: '100px',
-                                        height: '100px',
+                                        position: 'absolute', top: '-20px', right: '-20px',
+                                        width: '100px', height: '100px',
                                         background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
                                         filter: 'blur(10px)'
-                                    }}></div>
+                                    }} />
+                                </div>
+
+                                {/* Card 3: BASE LINDA */}
+                                <div
+                                    onClick={() => handleBaseSelection('LINDA')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        borderRadius: '32px',
+                                        background: 'linear-gradient(165deg, #18181b 0%, #09090b 100%)',
+                                        border: '1px solid rgba(249, 115, 22, 0.2)',
+                                        padding: '3.5rem',
+                                        width: '380px',
+                                        transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center'
+                                    }}
+                                    onMouseOver={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-15px) scale(1.02)';
+                                        e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.8)';
+                                        e.currentTarget.style.boxShadow = '0 30px 60px -15px rgba(249, 115, 22, 0.25)';
+                                    }}
+                                    onMouseOut={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                        e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.2)';
+                                        e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.5)';
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '100px',
+                                        height: '100px',
+                                        background: 'rgba(249, 115, 22, 0.1)',
+                                        borderRadius: '30px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: '2.5rem',
+                                        border: '1px solid rgba(249, 115, 22, 0.3)',
+                                        fontSize: '3.5rem',
+                                        boxShadow: 'inset 0 0 20px rgba(249, 115, 22, 0.1)'
+                                    }}>
+                                        🌸
+                                    </div>
+                                    <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: 'white', marginBottom: '1rem', letterSpacing: '-0.02em' }}>BASE LINDA</h4>
+                                    <p style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
+                                        Base de datos dedicada para campañas y segmentos exclusivos Linda.
+                                    </p>
+                                    <div style={{
+                                        marginTop: '3.5rem',
+                                        background: '#f97316',
+                                        color: '#fff',
+                                        padding: '1rem 2.5rem',
+                                        borderRadius: '16px',
+                                        fontWeight: '900',
+                                        fontSize: '0.9rem',
+                                        letterSpacing: '0.1em',
+                                        boxShadow: '0 8px 20px rgba(249, 115, 22, 0.4)',
+                                    }}>
+                                        ACCEDER AHORA →
+                                    </div>
+                                    <div style={{
+                                        position: 'absolute', top: '-20px', right: '-20px',
+                                        width: '100px', height: '100px',
+                                        background: 'radial-gradient(circle, rgba(249, 115, 22, 0.2) 0%, transparent 70%)',
+                                        filter: 'blur(10px)'
+                                    }} />
                                 </div>
                             </div>
                         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getNextLead, saveLead, getAgendamientos, getLeadByRuc, promoteToPipeline, fetchRucData } from '@/app/actions/leads';
 import { getNextSpecialLead, saveSpecialLead, getSpecialAgendamientos, getSpecialLeadByRuc, promoteToPipelineFromSpecial, createManualSpecialLead } from '@/app/actions/leads-special-gestion';
+import { getNextLindaLead, saveLindaLead, getLindaAgendamientos, getLindaLeadByRuc, promoteToPipelineFromLinda } from '@/app/actions/leads-linda-gestion';
 import AddRegistryModal from './AddRegistryModal';
 import { AppSwal } from '@/lib/sweetalert';
 
@@ -11,11 +12,12 @@ interface LeadFormProps {
     userEmail: string;
     userName: string;
     userRole?: string;
-    baseType?: 'RYDERS' | 'ESPECIAL';
+    baseType?: 'RYDERS' | 'ESPECIAL' | 'LINDA';
 }
 
 export default function LeadManager({ userEmail, userName, userRole, baseType = 'RYDERS' }: LeadFormProps) {
     const isSpecial = baseType === 'ESPECIAL';
+    const isLinda = baseType === 'LINDA';
     const [lead, setLead] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -47,7 +49,9 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
     const loadAgendamientos = async () => {
         const res = isSpecial
             ? await getSpecialAgendamientos(userName, userRole || 'STANDAR')
-            : await getAgendamientos(userName, userRole || 'STANDAR');
+            : isLinda
+                ? await getLindaAgendamientos(userName, userRole || 'STANDAR')
+                : await getAgendamientos(userName, userRole || 'STANDAR');
         if (res.success) {
             setAgendamientos(res.data);
         }
@@ -87,7 +91,9 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
         setMessage(null);
         const res = isSpecial
             ? await getNextSpecialLead(userEmail, userName)
-            : await getNextLead(userEmail, userName);
+            : isLinda
+                ? await getNextLindaLead(userEmail, userName)
+                : await getNextLead(userEmail, userName);
 
         if (res.success) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -123,7 +129,11 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
         setLoading(true);
         setSaving(false); // Safety reset
         setMessage(null);
-        const res = isSpecial ? await getSpecialLeadByRuc(ruc) : await getLeadByRuc(ruc);
+        const res = isSpecial
+            ? await getSpecialLeadByRuc(ruc)
+            : isLinda
+                ? await getLindaLeadByRuc(ruc)
+                : await getLeadByRuc(ruc);
 
         if (res.success && res.data) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -159,7 +169,11 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
         setLoading(true);
         setSaving(false); // Safety reset
         setMessage({ text: 'Cargando agendado...', type: 'success' });
-        const res = isSpecial ? await getSpecialLeadByRuc(ruc) : await getLeadByRuc(ruc);
+        const res = isSpecial
+            ? await getSpecialLeadByRuc(ruc)
+            : isLinda
+                ? await getLindaLeadByRuc(ruc)
+                : await getLeadByRuc(ruc);
 
         if (res.success && res.data) {
             const enrichedData = await verifyAndEnrichLead(res.data);
@@ -259,14 +273,18 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
 
         const res = isSpecial
             ? await saveSpecialLead(lead.id, dataToSave)
-            : await saveLead(lead.id, dataToSave);
+            : isLinda
+                ? await saveLindaLead(lead.id, dataToSave)
+                : await saveLead(lead.id, dataToSave);
 
         if (res.success) {
             // Check if we need to promote to pipeline
             if (formState.estado === 'INTERESADO') {
                 const promoteRes = isSpecial
                     ? await promoteToPipelineFromSpecial({ ...lead, ...formState }, userName)
-                    : await promoteToPipeline({ ...lead, ...formState }, userName);
+                    : isLinda
+                        ? await promoteToPipelineFromLinda({ ...lead, ...formState }, userName)
+                        : await promoteToPipeline({ ...lead, ...formState }, userName);
 
                 if (!promoteRes.success) {
                     // Non-blocking error, just warn
@@ -375,7 +393,7 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
 
     return (
         <>
-            {!isSpecial && (
+            {!isSpecial && !isLinda && (
                 <AddRegistryModal
                     isOpen={isAddModalOpen}
                     onClose={() => setIsAddModalOpen(false)}
@@ -494,7 +512,7 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
                                             Solicita una carga al administrador o agrega un registro manualmente.
                                         </p>
                                     </div>
-                                    {!isSpecial && (
+                                    {!isSpecial && !isLinda && (
                                         <button
                                             onClick={() => setIsAddModalOpen(true)}
                                             className="action-btn-premium"
@@ -526,7 +544,7 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
                                         <h2 style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#fff' }}>GESTIÓN DE OPORTUNIDAD</h2>
                                         <p style={{ fontSize: '10px', color: '#10b981', margin: '4px 0 0 0', fontWeight: '900', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Leads v2.0 • Prospección Activa</p>
                                     </div>
-                                    {!isSpecial && (
+                                    {!isSpecial && !isLinda && (
                                         <button
                                             onClick={() => setIsAddModalOpen(true)}
                                             className="action-btn-premium"

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getVentasData, getGoalData } from "@/app/actions/leads";
+import { getBaseLeadsStats } from "@/app/actions/base-stats";
 import ReportDashboard from "@/components/ReportDashboard";
 import { UserCache } from "@/lib/user-cache";
 
@@ -32,9 +33,10 @@ export default async function ReportePage(props: { searchParams: Promise<{ mes?:
     if (searchParams.mes) targetMonth = parseInt(searchParams.mes);
     if (searchParams.anio) targetYear = parseInt(searchParams.anio);
 
-    const [allVentas, goalResult] = await Promise.all([
+    const [allVentas, goalResult, baseStatsResult] = await Promise.all([
         getVentasData(),
-        getGoalData()
+        getGoalData(),
+        getBaseLeadsStats(),
     ]);
 
     // Aggregation Logic refined based on user specific list
@@ -365,6 +367,7 @@ export default async function ReportePage(props: { searchParams: Promise<{ mes?:
             goal={goal}
             selectedMonth={targetMonth}
             selectedYear={targetYear}
+            baseStats={baseStatsResult.success ? baseStatsResult.bases : []}
         />
     );
 }

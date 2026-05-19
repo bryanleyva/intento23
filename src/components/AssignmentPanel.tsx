@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getExecutiveAssignmentStats, assignLeadsByCriteria } from '@/app/actions/leads';
 import { getSpecialAssignmentStats, assignSpecialLeadsByCriteria } from '@/app/actions/leads-special-gestion';
+import { getLindaAssignmentStats, assignLindaLeadsByCriteria } from '@/app/actions/leads-linda-gestion';
 import { AppSwal } from '@/lib/sweetalert';
 
 interface AssignmentPanelProps {
@@ -11,7 +12,7 @@ interface AssignmentPanelProps {
 }
 
 export default function AssignmentPanel({ userRole, userName }: AssignmentPanelProps) {
-    const [activeBase, setActiveBase] = useState<'RYDERS' | 'ESPECIAL'>('RYDERS');
+    const [activeBase, setActiveBase] = useState<'RYDERS' | 'ESPECIAL' | 'LINDA'>('RYDERS');
     const [stats, setStats] = useState<any[]>([]);
     const [stock, setStock] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
@@ -31,7 +32,9 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
         setLoading(true);
         const res = activeBase === 'ESPECIAL'
             ? await getSpecialAssignmentStats(userRole, userName)
-            : await getExecutiveAssignmentStats(userRole, userName);
+            : activeBase === 'LINDA'
+                ? await getLindaAssignmentStats(userRole, userName)
+                : await getExecutiveAssignmentStats(userRole, userName);
         if (res.success) {
             setStats(res.stats || []);
             setStock(res.stock || {});
@@ -92,7 +95,9 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
         setAssigning(true);
         const res = activeBase === 'ESPECIAL'
             ? await assignSpecialLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName)
-            : await assignLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName);
+            : activeBase === 'LINDA'
+                ? await assignLindaLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName)
+                : await assignLeadsByCriteria(selectedExec.name, quantity, rangeId, userRole, userName);
         setAssigning(false);
 
         if (res.success) {
@@ -130,14 +135,20 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                 >
                     ⭐ Base Especial
                 </button>
+                <button
+                    onClick={() => setActiveBase('LINDA')}
+                    style={{ padding: '8px 20px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900, cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s', background: activeBase === 'LINDA' ? 'rgba(249,115,22,0.15)' : 'transparent', color: activeBase === 'LINDA' ? '#fb923c' : '#64748b', boxShadow: activeBase === 'LINDA' ? 'inset 0 0 0 1px rgba(249,115,22,0.3)' : 'none' }}
+                >
+                    🌸 Base Linda
+                </button>
             </div>
 
             {/* Header / Summary */}
             <div className="assignmentHeader">
                 <div className="headerLeft">
-                    <h1 className="headerTitle">{activeBase === 'ESPECIAL' ? 'Asignación Base Especial' : 'Control de Asignación'}</h1>
+                    <h1 className="headerTitle">{activeBase === 'ESPECIAL' ? 'Asignación Base Especial' : activeBase === 'LINDA' ? 'Asignación Base Linda' : 'Control de Asignación'}</h1>
                     <p className="headerSubtitle">
-                        <span className="stockIndicator" style={{ background: activeBase === 'ESPECIAL' ? '#8b5cf6' : '#10b981', boxShadow: activeBase === 'ESPECIAL' ? '0 0 10px #8b5cf6' : '0 0 10px #10b981' }}></span>
+                        <span className="stockIndicator" style={{ background: activeBase === 'ESPECIAL' ? '#8b5cf6' : activeBase === 'LINDA' ? '#f97316' : '#10b981', boxShadow: activeBase === 'ESPECIAL' ? '0 0 10px #8b5cf6' : activeBase === 'LINDA' ? '0 0 10px #f97316' : '0 0 10px #10b981' }}></span>
                         {totalAvailable} cuentas disponibles en Stock
                     </p>
                 </div>

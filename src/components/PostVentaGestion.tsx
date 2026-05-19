@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { PostVentaRecord } from '@/app/actions/postventa';
 import { PostVentaObservacion, savePostVentaObservacion, getPostVentaHistorial } from '@/app/actions/postventa-actions';
 import { uploadFileToDrive } from '@/app/actions/drive';
@@ -165,18 +166,45 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         });
     };
 
-    const handleExportCSV = () => {
-        const rows = filteredHist;
-        const headers = ['ID', 'RUC', 'Razón Social', 'Teléfono', 'Ejecutivo', 'Líneas', 'CF', 'Segmento', 'Observación', 'Estado', 'Usuario', 'Fecha'];
-        const lines = rows.map(h => [h.id, h.ruc, h.razonSocial, h.telefono, h.ejecutivoOriginal, h.lineas, h.cargoFijo, h.segmento, h.observacion, h.estado, h.usuario, h.fecha]);
-        const csv = [headers, ...lines].map(r => r.map(v => `"${(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `postventa-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+    const handleExportExcel = () => {
+        const rows = filteredHist.map(h => ({
+            'ID':           h.id ?? '',
+            'RUC':          h.ruc ?? '',
+            'Razón Social': h.razonSocial ?? '',
+            'Teléfono':     h.telefono ?? '',
+            'Ejecutivo':    h.ejecutivoOriginal ?? '',
+            'Líneas':       h.lineas ?? '',
+            'Cargo Fijo':   h.cargoFijo ?? '',
+            'Segmento':     h.segmento ?? '',
+            'Observación':  h.observacion ?? '',
+            'Estado':       h.estado ?? '',
+            'Usuario':      h.usuario ?? '',
+            'Fecha':        h.fecha ?? '',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+
+        // Ancho de columnas
+        ws['!cols'] = [
+            { wch: 8 },   // ID
+            { wch: 14 },  // RUC
+            { wch: 40 },  // Razón Social
+            { wch: 16 },  // Teléfono
+            { wch: 30 },  // Ejecutivo
+            { wch: 8 },   // Líneas
+            { wch: 12 },  // Cargo Fijo
+            { wch: 14 },  // Segmento
+            { wch: 60 },  // Observación
+            { wch: 14 },  // Estado
+            { wch: 22 },  // Usuario
+            { wch: 20 },  // Fecha
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Post Venta');
+
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `postventa-${fecha}.xlsx`);
     };
 
     const filteredHist = historial
@@ -509,8 +537,8 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700 }}>{filteredHist.length} registros</span>
                             {isJefeBO && (
-                                <button className="pv-btn-export" onClick={handleExportCSV}>
-                                    ⬇ Exportar CSV
+                                <button className="pv-btn-export" onClick={handleExportExcel}>
+                                    ⬇ Exportar Excel
                                 </button>
                             )}
                         </div>
