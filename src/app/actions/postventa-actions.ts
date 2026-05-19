@@ -7,7 +7,7 @@ const SHEET_NAME = 'POSTVENTA_SEGUIMIENTO';
 const SHEET_HEADERS = [
     'ID', 'RUC', 'RAZON SOCIAL', 'TELEFONO', 'EJECUTIVO ORIGINAL',
     'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'OBSERVACION',
-    'ESTADO', 'EVIDENCIA_IDS', 'USUARIO', 'FECHA',
+    'ESTADO', 'MOTIVO', 'SUBMOTIVO', 'EVIDENCIA_IDS', 'USUARIO', 'FECHA',
 ];
 
 export interface PostVentaObservacion {
@@ -20,7 +20,9 @@ export interface PostVentaObservacion {
     cargoFijo: string;
     segmento: string;
     observacion: string;
-    estado: string;       // SATISFECHO | INSATISFECHO | ESCALADO | ''
+    estado: string;
+    motivo: string;
+    submotivo: string;
     evidenciaIds: string; // comma-separated Drive file IDs
     usuario: string;
     fecha: string;
@@ -38,6 +40,8 @@ function mapRow(r: any): PostVentaObservacion {
         segmento: r.get('SEGMENTO') || '',
         observacion: r.get('OBSERVACION') || '',
         estado: r.get('ESTADO') || '',
+        motivo: r.get('MOTIVO') || '',
+        submotivo: r.get('SUBMOTIVO') || '',
         evidenciaIds: r.get('EVIDENCIA_IDS') || '',
         usuario: r.get('USUARIO') || '',
         fecha: r.get('FECHA') || '',
@@ -72,6 +76,8 @@ export async function savePostVentaObservacion(data: {
     segmento: string;
     observacion: string;
     estado: string;
+    motivo?: string;
+    submotivo?: string;
     evidenciaIds?: string;
     usuario: string;
 }): Promise<{ success: boolean; error?: string }> {
@@ -93,6 +99,8 @@ export async function savePostVentaObservacion(data: {
             'SEGMENTO': data.segmento,
             'OBSERVACION': data.observacion,
             'ESTADO': data.estado,
+            'MOTIVO': data.motivo || '',
+            'SUBMOTIVO': data.submotivo || '',
             'EVIDENCIA_IDS': data.evidenciaIds || '',
             'USUARIO': data.usuario,
             'FECHA': now,
@@ -108,7 +116,7 @@ export async function savePostVentaObservacion(data: {
 // ─── ACTUALIZAR ESTADO DE UNA OBSERVACIÓN ────────────────────────────────────
 export async function updatePostVentaObservacion(
     id: string,
-    data: { estado?: string; observacion?: string; evidenciaIds?: string }
+    data: { estado?: string; motivo?: string; submotivo?: string; observacion?: string; evidenciaIds?: string }
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const sheet = await getOrCreateSheet();
@@ -116,6 +124,8 @@ export async function updatePostVentaObservacion(
         const row = rows.find(r => r.get('ID') === id);
         if (!row) return { success: false, error: 'Registro no encontrado' };
         if (data.estado !== undefined) row.set('ESTADO', data.estado);
+        if (data.motivo !== undefined) row.set('MOTIVO', data.motivo);
+        if (data.submotivo !== undefined) row.set('SUBMOTIVO', data.submotivo);
         if (data.observacion !== undefined) row.set('OBSERVACION', data.observacion);
         if (data.evidenciaIds !== undefined) row.set('EVIDENCIA_IDS', data.evidenciaIds);
         await row.save();

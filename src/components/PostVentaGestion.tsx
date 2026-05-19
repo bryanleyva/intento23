@@ -17,15 +17,53 @@ interface Props {
 }
 
 type Vista = 'gestion' | 'historial';
-type Estado = 'SATISFECHO' | 'INSATISFECHO' | 'ESCALADO';
 
-const ESTADO_CFG: Record<Estado, { bg: string; border: string; color: string; label: string; emoji: string }> = {
-    'SATISFECHO':   { bg: 'rgba(16,185,129,0.15)',  border: 'rgba(16,185,129,0.45)',  color: '#34d399', label: 'Satisfecho',   emoji: '✅' },
-    'INSATISFECHO': { bg: 'rgba(245,158,11,0.15)',   border: 'rgba(245,158,11,0.45)',  color: '#fbbf24', label: 'Insatisfecho', emoji: '⚠️' },
-    'ESCALADO':     { bg: 'rgba(239,68,68,0.15)',    border: 'rgba(239,68,68,0.45)',   color: '#f87171', label: 'Escalado',     emoji: '🔴' },
+type MotivoConfig = { key: string; label: string; submotivos: string[] };
+type EstadoConfig = { label: string; emoji: string; color: string; bg: string; border: string; motivos: MotivoConfig[] };
+type EstadoKey = 'SATISFECHO' | 'INSATISFECHO' | 'NO CONTESTA' | 'SIN LLEGADA AL ENCARGADO' | 'PROBLEMAS DE FACTURACION';
+
+const ESTADOS: Record<EstadoKey, EstadoConfig> = {
+    'SATISFECHO': {
+        label: 'Satisfecho', emoji: '✅',
+        color: '#34d399', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.45)',
+        motivos: [],
+    },
+    'INSATISFECHO': {
+        label: 'Insatisfecho', emoji: '⚠️',
+        color: '#fbbf24', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.45)',
+        motivos: [
+            { key: 'PROBLEMAS TECNICOS', label: 'Problemas técnicos', submotivos: ['PROBLEMAS DE SEÑAL', 'INTERNET LENTO', 'SIN SERVICIO', 'PROBLEMAS DE CONFIGURACION'] },
+            { key: 'DESCUENTOS NO PACTADOS', label: 'Descuentos no pactados', submotivos: [] },
+            { key: 'BENEFICIO NO BRINDADO', label: 'Beneficio no brindado', submotivos: [] },
+            { key: 'CLIENTE MOLESTO', label: 'Cliente molesto', submotivos: [] },
+            { key: 'SOLICITA BAJA O PORTABILIDAD', label: 'Solicita baja o portabilidad', submotivos: [] },
+            { key: 'VENTA OBSERVADA POR CALIDAD', label: 'Venta observada por calidad', submotivos: [] },
+            { key: 'POSIBLE REVERSION', label: 'Posible reversión', submotivos: [] },
+        ],
+    },
+    'NO CONTESTA': {
+        label: 'No contesta', emoji: '📵',
+        color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.4)',
+        motivos: [],
+    },
+    'SIN LLEGADA AL ENCARGADO': {
+        label: 'Sin llegada al encargado', emoji: '🚫',
+        color: '#64748b', bg: 'rgba(100,116,139,0.15)', border: 'rgba(100,116,139,0.4)',
+        motivos: [],
+    },
+    'PROBLEMAS DE FACTURACION': {
+        label: 'Problemas de facturación', emoji: '🧾',
+        color: '#f87171', bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.45)',
+        motivos: [
+            { key: 'PLAN INCORRECTO', label: 'Plan incorrecto', submotivos: ['FACTURACION INCORRECTA', 'COBRO ADICIONAL', 'ERROR EN LA PROMOCION'] },
+        ],
+    },
 };
 
-const getEstadoCfg = (e: string) => ESTADO_CFG[e as Estado] ?? { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)', color: '#64748b', label: e || 'Sin estado', emoji: '—' };
+const ESTADO_KEYS = Object.keys(ESTADOS) as EstadoKey[];
+
+const getEstadoCfg = (e: string): EstadoConfig & { emoji: string } =>
+    ESTADOS[e as EstadoKey] ?? { label: e || 'Sin estado', emoji: '—', color: '#64748b', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)', motivos: [] };
 
 const SEG_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
     'SOHO':      { bg: '#6366f115', text: '#818cf8', glow: '#6366f140' },
@@ -54,7 +92,9 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     });
 
     const [obs, setObs] = useState('');
-    const [selectedEstado, setSelectedEstado] = useState<Estado | ''>('');
+    const [selectedEstado, setSelectedEstado] = useState<EstadoKey | ''>('');
+    const [selectedMotivo, setSelectedMotivo] = useState('');
+    const [selectedSubmotivo, setSelectedSubmotivo] = useState('');
     const [reGestionando, setReGestionando] = useState<Set<string>>(new Set());
     const [uploadedFiles, setUploadedFiles] = useState<{ id: string; name: string }[]>([]);
     const [uploading, setUploading] = useState(false);
@@ -78,14 +118,24 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
 
     const ejecutivosUnicos = [...new Set(cuentas.map(c => c.ejecutivo).filter(Boolean))].sort();
 
-    // Reset idx when filter changes
+    // Derived estado/motivo/submotivo config
+    const estadoConfig = selectedEstado ? ESTADOS[selectedEstado] : null;
+    const motivosParaEstado = estadoConfig?.motivos ?? [];
+    const requiereMotivo = motivosParaEstado.length > 0;
+    const selectedMotivoConfig = motivosParaEstado.find(m => m.key === selectedMotivo);
+    const submotivosParaMotivo = selectedMotivoConfig?.submotivos ?? [];
+    const requiereSubmotivo = submotivosParaMotivo.length > 0;
+
+    const canSave = !!(obs.trim() && selectedEstado &&
+        (!requiereMotivo || selectedMotivo) &&
+        (!requiereSubmotivo || selectedSubmotivo));
+
     useEffect(() => {
         const firstUnsaved = filteredCuentas.findIndex(c => !guardadas.has(c.ruc));
         setIdx(firstUnsaved >= 0 ? firstUnsaved : 0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filterEjecutivo]);
 
-    // Load own historial when switching to historial tab
     useEffect(() => {
         if (isJefeBO) return;
         if (vista === 'historial') {
@@ -97,10 +147,11 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         }
     }, [vista, usuario, isJefeBO]);
 
-    // Clear form when account changes
     useEffect(() => {
         setObs('');
         setSelectedEstado('');
+        setSelectedMotivo('');
+        setSelectedSubmotivo('');
         setUploadedFiles([]);
     }, [idx]);
 
@@ -128,7 +179,15 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             return;
         }
         if (!selectedEstado) {
-            AppSwal.fire({ icon: 'warning', title: 'Selecciona un estado', text: 'Debes seleccionar SATISFECHO, INSATISFECHO o ESCALADO.', confirmButtonColor: '#10b981' });
+            AppSwal.fire({ icon: 'warning', title: 'Selecciona un estado', confirmButtonColor: '#10b981' });
+            return;
+        }
+        if (requiereMotivo && !selectedMotivo) {
+            AppSwal.fire({ icon: 'warning', title: 'Selecciona un motivo', confirmButtonColor: '#10b981' });
+            return;
+        }
+        if (requiereSubmotivo && !selectedSubmotivo) {
+            AppSwal.fire({ icon: 'warning', title: 'Selecciona un submotivo', confirmButtonColor: '#10b981' });
             return;
         }
         if (!cuenta) return;
@@ -144,21 +203,28 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 segmento: cuenta.segmento,
                 observacion: obs.trim(),
                 estado: selectedEstado,
+                motivo: selectedMotivo,
+                submotivo: selectedSubmotivo,
                 evidenciaIds: uploadedFiles.map(f => f.id).join(','),
                 usuario,
             });
 
             if (res.success) {
                 setReGestionando(prev => { const n = new Set(prev); n.delete(cuenta.ruc); return n; });
-                if (selectedEstado === 'SATISFECHO' || selectedEstado === 'ESCALADO') {
+                if (selectedEstado === 'SATISFECHO') {
                     setGuardadas(prev => new Set([...prev, cuenta.ruc]));
                     if (idx < total - 1) {
                         setTimeout(() => setIdx(i => i + 1), 600);
                     }
                 } else {
-                    // INSATISFECHO: stays in queue
                     setGuardadas(prev => { const n = new Set(prev); n.delete(cuenta.ruc); return n; });
-                    AppSwal.fire({ icon: 'info', title: 'Registrado como Insatisfecho', text: 'La cuenta permanece en cola para seguimiento.', confirmButtonColor: '#f59e0b' });
+                    const cfg = ESTADOS[selectedEstado];
+                    AppSwal.fire({
+                        icon: 'info',
+                        title: `${cfg.emoji} Registrado como ${cfg.label}`,
+                        text: 'La cuenta permanece en cola para seguimiento.',
+                        confirmButtonColor: '#f59e0b',
+                    });
                 }
             } else {
                 AppSwal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'No se pudo guardar', confirmButtonColor: '#ef4444' });
@@ -168,43 +234,31 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
 
     const handleExportExcel = () => {
         const rows = filteredHist.map(h => ({
-            'ID':           h.id ?? '',
-            'RUC':          h.ruc ?? '',
+            'ID': h.id ?? '',
+            'RUC': h.ruc ?? '',
             'Razón Social': h.razonSocial ?? '',
-            'Teléfono':     h.telefono ?? '',
-            'Ejecutivo':    h.ejecutivoOriginal ?? '',
-            'Líneas':       h.lineas ?? '',
-            'Cargo Fijo':   h.cargoFijo ?? '',
-            'Segmento':     h.segmento ?? '',
-            'Observación':  h.observacion ?? '',
-            'Estado':       h.estado ?? '',
-            'Usuario':      h.usuario ?? '',
-            'Fecha':        h.fecha ?? '',
+            'Teléfono': h.telefono ?? '',
+            'Ejecutivo': h.ejecutivoOriginal ?? '',
+            'Líneas': h.lineas ?? '',
+            'Cargo Fijo': h.cargoFijo ?? '',
+            'Segmento': h.segmento ?? '',
+            'Observación': h.observacion ?? '',
+            'Estado': h.estado ?? '',
+            'Motivo': h.motivo ?? '',
+            'Submotivo': h.submotivo ?? '',
+            'Usuario': h.usuario ?? '',
+            'Fecha': h.fecha ?? '',
         }));
 
         const ws = XLSX.utils.json_to_sheet(rows);
-
-        // Ancho de columnas
         ws['!cols'] = [
-            { wch: 8 },   // ID
-            { wch: 14 },  // RUC
-            { wch: 40 },  // Razón Social
-            { wch: 16 },  // Teléfono
-            { wch: 30 },  // Ejecutivo
-            { wch: 8 },   // Líneas
-            { wch: 12 },  // Cargo Fijo
-            { wch: 14 },  // Segmento
-            { wch: 60 },  // Observación
-            { wch: 14 },  // Estado
-            { wch: 22 },  // Usuario
-            { wch: 20 },  // Fecha
+            { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 30 },
+            { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 60 }, { wch: 22 },
+            { wch: 28 }, { wch: 28 }, { wch: 22 }, { wch: 20 },
         ];
-
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Post Venta');
-
-        const fecha = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(wb, `postventa-${fecha}.xlsx`);
+        XLSX.writeFile(wb, `postventa-${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     const filteredHist = historial
@@ -236,7 +290,6 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
 
                 .pv-cuenta-card { border-radius:1.5rem; overflow:hidden; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.025); margin-bottom:1.25rem; transition:border-color 0.3s; }
                 .pv-cuenta-card.guardada { border-color:rgba(16,185,129,0.35); background:rgba(16,185,129,0.03); }
-                .pv-cuenta-card.insatisfecho { border-color:rgba(245,158,11,0.35); background:rgba(245,158,11,0.02); }
                 .pv-cuenta-top { padding:1.75rem 2rem 1.25rem; display:flex; align-items:flex-start; gap:1.25rem; }
                 .pv-cuenta-avatar { width:52px; height:52px; border-radius:1rem; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
                 .pv-cuenta-info { flex:1; min-width:0; }
@@ -254,17 +307,24 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 .pv-data-value.tel { color:#38bdf8; font-size:1.05rem; }
                 .pv-cuenta-ejec { font-size:0.72rem; color:#64748b; margin-top:4px; }
 
+                .pv-section-label { font-size:0.7rem; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.4rem; }
+                .pv-required { color:#f43f5e; font-size:0.9rem; }
+                .pv-optional { color:#334155; font-size:0.65rem; font-weight:700; }
+
                 .pv-estado-section { margin-bottom:1rem; }
-                .pv-estado-label { font-size:0.7rem; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.4rem; }
-                .pv-estado-required { color:#f43f5e; font-size:0.9rem; }
-                .pv-estado-btns { display:flex; gap:0.6rem; flex-wrap:wrap; }
-                .pv-estado-btn { padding:9px 18px; border-radius:0.875rem; font-size:0.78rem; font-weight:800; cursor:pointer; border:1px solid transparent; letter-spacing:0.04em; text-transform:uppercase; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.04); color:#64748b; border-color:rgba(255,255,255,0.08); }
+                .pv-estado-btns { display:flex; gap:0.5rem; flex-wrap:wrap; }
+                .pv-estado-btn { padding:9px 16px; border-radius:0.875rem; font-size:0.75rem; font-weight:800; cursor:pointer; border:1px solid transparent; letter-spacing:0.03em; text-transform:uppercase; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.04); color:#64748b; border-color:rgba(255,255,255,0.08); white-space:nowrap; }
                 .pv-estado-btn:hover { opacity:0.85; }
                 .pv-estado-btn.selected { transform:scale(1.03); box-shadow:0 4px 15px rgba(0,0,0,0.2); }
 
+                .pv-cascade-box { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:1rem; padding:1rem 1.25rem; margin-bottom:1rem; }
+                .pv-cascade-select { width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:0.75rem; color:white; font-size:0.85rem; font-weight:600; padding:10px 14px; outline:none; cursor:pointer; transition:border-color 0.2s; appearance:none; }
+                .pv-cascade-select:focus { border-color:rgba(245,158,11,0.5); }
+                .pv-cascade-select option { background:#0f172a; color:white; }
+                .pv-submotivo-select { border-color:rgba(239,68,68,0.3); }
+                .pv-submotivo-select:focus { border-color:rgba(239,68,68,0.6); }
+
                 .pv-obs-wrap { margin-bottom:1rem; }
-                .pv-obs-label { font-size:0.7rem; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.4rem; }
-                .pv-obs-required { color:#f43f5e; font-size:0.9rem; }
                 .pv-obs-textarea { width:100%; min-height:100px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:1rem; padding:1rem 1.25rem; color:white; font-size:0.9rem; resize:vertical; outline:none; transition:border-color 0.2s, box-shadow 0.2s; font-family:inherit; box-sizing:border-box; }
                 .pv-obs-textarea:focus { border-color:rgba(16,185,129,0.5); box-shadow:0 0 0 3px rgba(16,185,129,0.08); }
                 .pv-obs-textarea::placeholder { color:#334155; }
@@ -308,6 +368,8 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 .pv-hist-meta { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.6rem; align-items:center; }
                 .pv-hist-chip { font-size:0.65rem; font-weight:700; color:#64748b; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:999px; padding:3px 10px; }
                 .pv-hist-estado-chip { font-size:0.65rem; font-weight:900; border-radius:999px; padding:3px 10px; letter-spacing:0.05em; text-transform:uppercase; }
+                .pv-hist-motivo-chip { font-size:0.65rem; font-weight:700; color:#fbbf24; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:999px; padding:3px 10px; }
+                .pv-hist-submotivo-chip { font-size:0.65rem; font-weight:700; color:#f87171; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:999px; padding:3px 10px; }
                 .pv-hist-file-link { font-size:0.65rem; font-weight:700; color:#818cf8; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:999px; padding:3px 10px; text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; }
                 .pv-hist-file-link:hover { background:rgba(99,102,241,0.2); }
                 .pv-empty-hist { text-align:center; padding:3rem; color:#475569; }
@@ -331,19 +393,12 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             {/* ══════════ GESTIÓN ══════════ */}
             {vista === 'gestion' && (
                 <>
-                    {/* Filtro por ejecutivo */}
                     {ejecutivosUnicos.length > 0 && (
                         <div className="pv-filter-bar">
                             <span className="pv-filter-label">Filtrar por ejecutivo:</span>
-                            <select
-                                className="pv-select"
-                                value={filterEjecutivo}
-                                onChange={e => setFilterEjecutivo(e.target.value)}
-                            >
+                            <select className="pv-select" value={filterEjecutivo} onChange={e => setFilterEjecutivo(e.target.value)}>
                                 <option value="">Todos ({cuentas.length})</option>
-                                {ejecutivosUnicos.map(ej => (
-                                    <option key={ej} value={ej}>{ej}</option>
-                                ))}
+                                {ejecutivosUnicos.map(ej => <option key={ej} value={ej}>{ej}</option>)}
                             </select>
                         </div>
                     )}
@@ -367,7 +422,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                         </div>
                     ) : (
                         <>
-                            {/* PROGRESS */}
+                            {/* PROGRESO */}
                             <div className="pv-progress-wrap">
                                 <div className="pv-progress-labels">
                                     <span className="pv-progress-text">Progreso · {rangeLabel}</span>
@@ -394,18 +449,14 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                                     {cuenta.isRuc10 ? 'RUC 10' : 'RUC 20'}
                                                 </span>
                                             </div>
-                                            <div className="pv-cuenta-nombre" title={cuenta.razonSocial}>
-                                                {cuenta.razonSocial}
-                                            </div>
+                                            <div className="pv-cuenta-nombre" title={cuenta.razonSocial}>{cuenta.razonSocial}</div>
                                             {cuenta.segmento && (
                                                 <span className="pv-cuenta-seg"
                                                       style={{ background: segColor.bg, color: segColor.text, border: `1px solid ${segColor.glow}` }}>
                                                     {cuenta.segmento}
                                                 </span>
                                             )}
-                                            {cuenta.ejecutivo && (
-                                                <div className="pv-cuenta-ejec">👤 {cuenta.ejecutivo}</div>
-                                            )}
+                                            {cuenta.ejecutivo && <div className="pv-cuenta-ejec">👤 {cuenta.ejecutivo}</div>}
                                         </div>
                                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                             <div style={{ fontSize: '0.65rem', fontWeight: 900, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cuenta</div>
@@ -438,7 +489,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                      style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#34d399' }}>
                                     <span>✅ Cuenta gestionada</span>
                                     <button className="pv-btn pv-btn-regest" style={{ marginLeft: 'auto', padding: '7px 14px', fontSize: '0.72rem' }}
-                                            onClick={() => { setReGestionando(prev => new Set([...prev, cuenta!.ruc])); }}>
+                                            onClick={() => setReGestionando(prev => new Set([...prev, cuenta!.ruc]))}>
                                         Re-gestionar
                                     </button>
                                 </div>
@@ -446,28 +497,71 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                 <>
                                     {/* ESTADO */}
                                     <div className="pv-estado-section">
-                                        <div className="pv-estado-label">
-                                            Estado de la gestión <span className="pv-estado-required">*</span>
+                                        <div className="pv-section-label">
+                                            Estado de la gestión <span className="pv-required">*</span>
                                         </div>
                                         <div className="pv-estado-btns">
-                                            {(Object.entries(ESTADO_CFG) as [Estado, typeof ESTADO_CFG[Estado]][]).map(([key, cfg]) => (
-                                                <button
-                                                    key={key}
-                                                    className={`pv-estado-btn ${selectedEstado === key ? 'selected' : ''}`}
-                                                    style={selectedEstado === key ? { background: cfg.bg, borderColor: cfg.border, color: cfg.color } : {}}
-                                                    onClick={() => setSelectedEstado(key)}
-                                                    disabled={isPending}
-                                                >
-                                                    {cfg.emoji} {cfg.label}
-                                                </button>
-                                            ))}
+                                            {ESTADO_KEYS.map(key => {
+                                                const cfg = ESTADOS[key];
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        className={`pv-estado-btn ${selectedEstado === key ? 'selected' : ''}`}
+                                                        style={selectedEstado === key ? { background: cfg.bg, borderColor: cfg.border, color: cfg.color } : {}}
+                                                        onClick={() => { setSelectedEstado(key); setSelectedMotivo(''); setSelectedSubmotivo(''); }}
+                                                        disabled={isPending}
+                                                    >
+                                                        {cfg.emoji} {cfg.label}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
+                                    {/* MOTIVO (cuando el estado lo requiere) */}
+                                    {requiereMotivo && (
+                                        <div className="pv-cascade-box">
+                                            <div className="pv-section-label" style={{ marginBottom: '0.5rem' }}>
+                                                Motivo <span className="pv-required">*</span>
+                                            </div>
+                                            <select
+                                                className="pv-cascade-select"
+                                                value={selectedMotivo}
+                                                onChange={e => { setSelectedMotivo(e.target.value); setSelectedSubmotivo(''); }}
+                                                disabled={isPending}
+                                            >
+                                                <option value="">— Selecciona el motivo —</option>
+                                                {motivosParaEstado.map(m => (
+                                                    <option key={m.key} value={m.key}>{m.label}</option>
+                                                ))}
+                                            </select>
+
+                                            {/* SUBMOTIVO (cuando el motivo lo requiere) */}
+                                            {requiereSubmotivo && (
+                                                <div style={{ marginTop: '0.75rem' }}>
+                                                    <div className="pv-section-label" style={{ marginBottom: '0.5rem', color: '#f87171' }}>
+                                                        Submotivo <span className="pv-required">*</span>
+                                                    </div>
+                                                    <select
+                                                        className="pv-cascade-select pv-submotivo-select"
+                                                        value={selectedSubmotivo}
+                                                        onChange={e => setSelectedSubmotivo(e.target.value)}
+                                                        disabled={isPending}
+                                                    >
+                                                        <option value="">— Selecciona el submotivo —</option>
+                                                        {submotivosParaMotivo.map(s => (
+                                                            <option key={s} value={s}>{s}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* OBSERVACIÓN */}
                                     <div className="pv-obs-wrap">
-                                        <div className="pv-obs-label">
-                                            Observación de la llamada <span className="pv-obs-required">*</span>
+                                        <div className="pv-section-label">
+                                            Observación de la llamada <span className="pv-required">*</span>
                                         </div>
                                         <textarea
                                             className="pv-obs-textarea"
@@ -478,16 +572,12 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                         />
                                     </div>
 
-                                    {/* EVIDENCIA */}
+                                    {/* EVIDENCIA (opcional) */}
                                     <div className="pv-upload-section">
-                                        <div className="pv-obs-label">Evidencia (capturas, audios, docs)</div>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            multiple
-                                            style={{ display: 'none' }}
-                                            onChange={handleFileUpload}
-                                        />
+                                        <div className="pv-section-label">
+                                            Evidencia (capturas, audios, docs) <span className="pv-optional">— Opcional</span>
+                                        </div>
+                                        <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileUpload} />
                                         <button className="pv-upload-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading || isPending}>
                                             {uploading ? <><div className="pv-spinner" style={{ borderTopColor: '#a78bfa' }} /> Subiendo...</> : <>📎 Adjuntar archivos</>}
                                         </button>
@@ -511,7 +601,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                         Siguiente cuenta →
                                     </button>
                                 ) : (
-                                    <button className="pv-btn pv-btn-guardar" onClick={handleGuardar} disabled={isPending || !obs.trim() || !selectedEstado}>
+                                    <button className="pv-btn pv-btn-guardar" onClick={handleGuardar} disabled={isPending || !canSave}>
                                         {isPending ? <><div className="pv-spinner" /> Guardando...</> : <>✓ Guardar gestión</>}
                                     </button>
                                 )}
@@ -544,7 +634,6 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                         </div>
                     </div>
 
-                    {/* Filtros historial (JEFE_BO) */}
                     {isJefeBO && (
                         <div className="pv-hist-filters">
                             <span className="pv-filter-label">Filtrar:</span>
@@ -606,11 +695,9 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                                     🎧 {h.usuario}
                                                 </span>
                                             )}
-                                            {h.segmento && (
-                                                <span className="pv-hist-chip" style={{ color: sc.text, borderColor: sc.glow }}>
-                                                    {h.segmento}
-                                                </span>
-                                            )}
+                                            {h.motivo && <span className="pv-hist-motivo-chip">⚡ {h.motivo}</span>}
+                                            {h.submotivo && <span className="pv-hist-submotivo-chip">↳ {h.submotivo}</span>}
+                                            {h.segmento && <span className="pv-hist-chip" style={{ color: sc.text, borderColor: sc.glow }}>{h.segmento}</span>}
                                             {h.telefono && <span className="pv-hist-chip">📞 {h.telefono}</span>}
                                             {h.lineas && <span className="pv-hist-chip">📶 {h.lineas} líneas</span>}
                                             {h.ejecutivoOriginal && <span className="pv-hist-chip">👤 {h.ejecutivoOriginal}</span>}
