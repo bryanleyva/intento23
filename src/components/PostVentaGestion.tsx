@@ -155,6 +155,21 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         setUploadedFiles([]);
     }, [idx]);
 
+    // Restore last viewed account from localStorage on mount
+    useEffect(() => {
+        const lastRuc = localStorage.getItem(`pv_pos_${usuario}`);
+        if (lastRuc) {
+            const restoredIdx = cuentas.findIndex(c => c.ruc === lastRuc);
+            if (restoredIdx >= 0) setIdx(restoredIdx);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist current account RUC whenever it changes
+    useEffect(() => {
+        if (cuenta) localStorage.setItem(`pv_pos_${usuario}`, cuenta.ruc);
+    }, [cuenta?.ruc, usuario]);
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
