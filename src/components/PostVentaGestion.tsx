@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { PostVentaRecord } from '@/app/actions/postventa';
-import { PostVentaObservacion, savePostVentaObservacion, getPostVentaHistorial } from '@/app/actions/postventa-actions';
+import { PostVentaObservacion, savePostVentaObservacion, getPostVentaHistorial, updatePostVentaObservacion } from '@/app/actions/postventa-actions';
 import { uploadFileToDrive } from '@/app/actions/drive';
 import { AppSwal } from '@/lib/sweetalert';
 
@@ -104,6 +104,13 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const [loadingHist, setLoadingHist] = useState(false);
     const [filterHistUsuario, setFilterHistUsuario] = useState('');
     const [filterHistEjecutivo, setFilterHistEjecutivo] = useState('');
+    const [searchHistRuc, setSearchHistRuc] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editEstado, setEditEstado] = useState<EstadoKey | ''>('');
+    const [editMotivo, setEditMotivo] = useState('');
+    const [editSubmotivo, setEditSubmotivo] = useState('');
+    const [editObs, setEditObs] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
     const [isPending, startTransition] = useTransition();
 
     const cuenta = filteredCuentas[idx] ?? null;
@@ -216,6 +223,8 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 lineas: cuenta.lineas,
                 cargoFijo: cuenta.cargoFijo,
                 segmento: cuenta.segmento,
+                srIngreso: cuenta.srIngreso,
+                numOrden: cuenta.numOrden,
                 observacion: obs.trim(),
                 estado: selectedEstado,
                 motivo: selectedMotivo,
@@ -257,6 +266,8 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             'Líneas': h.lineas ?? '',
             'Cargo Fijo': h.cargoFijo ?? '',
             'Segmento': h.segmento ?? '',
+            'SR Ingreso': h.srIngreso ?? '',
+            'N° Orden': h.numOrden ?? '',
             'Observación': h.observacion ?? '',
             'Estado': h.estado ?? '',
             'Motivo': h.motivo ?? '',
@@ -268,17 +279,50 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         const ws = XLSX.utils.json_to_sheet(rows);
         ws['!cols'] = [
             { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 30 },
-            { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 60 }, { wch: 22 },
-            { wch: 28 }, { wch: 28 }, { wch: 22 }, { wch: 20 },
+            { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+            { wch: 60 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 22 }, { wch: 20 },
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Post Venta');
         XLSX.writeFile(wb, `postventa-${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
+    async function handleUpdateHistorial(id: string) {
+        setEditSaving(true);
+        const res = await updatePostVentaObservacion(id, {
+            estado: editEstado,
+            motivo: editMotivo,
+            submotivo: editSubmotivo,
+            observacion: editObs,
+        });
+        if (res.success) {
+            setHistorial(prev => prev.map(h => h.id === id
+                ? { ...h, estado: editEstado, motivo: editMotivo, submotivo: editSubmotivo, observacion: editObs }
+                : h
+            ));
+            setEditingId(null);
+        } else {
+            AppSwal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'No se pudo actualizar', confirmButtonColor: '#ef4444' });
+        }
+        setEditSaving(false);
+    }
+
+    function startEditing(h: PostVentaObservacion) {
+        setEditingId(h.id);
+        setEditEstado((h.estado as EstadoKey) || '');
+        setEditMotivo(h.motivo || '');
+        setEditSubmotivo(h.submotivo || '');
+        setEditObs(h.observacion || '');
+    }
+
     const filteredHist = historial
         .filter(h => !filterHistUsuario || h.usuario === filterHistUsuario)
-        .filter(h => !filterHistEjecutivo || h.ejecutivoOriginal === filterHistEjecutivo);
+        .filter(h => !filterHistEjecutivo || h.ejecutivoOriginal === filterHistEjecutivo)
+        .filter(h => {
+            if (!searchHistRuc) return true;
+            const q = searchHistRuc.trim().toLowerCase();
+            return h.ruc.includes(q) || h.razonSocial.toLowerCase().includes(q);
+        });
 
     const histUsuariosUnicos = [...new Set(historial.map(h => h.usuario).filter(Boolean))].sort();
     const histEjecutivosUnicos = [...new Set(historial.map(h => h.ejecutivoOriginal).filter(Boolean))].sort();
@@ -388,6 +432,20 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 .pv-hist-file-link { font-size:0.65rem; font-weight:700; color:#818cf8; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:999px; padding:3px 10px; text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; }
                 .pv-hist-file-link:hover { background:rgba(99,102,241,0.2); }
                 .pv-empty-hist { text-align:center; padding:3rem; color:#475569; }
+                .pv-hist-search { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.6rem 1rem; color:white; font-size:0.85rem; outline:none; transition:border-color 0.2s; margin-bottom:1rem; box-sizing:border-box; }
+                .pv-hist-search:focus { border-color:rgba(99,102,241,0.5); }
+                .pv-hist-search::placeholder { color:#334155; }
+                .pv-edit-box { background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:0.875rem; padding:1rem 1.25rem; margin-top:0.75rem; }
+                .pv-edit-row { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+                .pv-edit-select { flex:1; min-width:160px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:0.6rem; color:white; font-size:0.8rem; padding:8px 12px; outline:none; }
+                .pv-edit-textarea { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.75rem 1rem; color:white; font-size:0.85rem; resize:none; outline:none; font-family:inherit; box-sizing:border-box; }
+                .pv-edit-actions { display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.6rem; }
+                .pv-btn-edit { font-size:0.68rem; font-weight:800; padding:5px 14px; border-radius:0.6rem; cursor:pointer; border:1px solid rgba(99,102,241,0.35); background:rgba(99,102,241,0.12); color:#818cf8; transition:all 0.2s; text-transform:uppercase; letter-spacing:0.04em; }
+                .pv-btn-edit:hover { background:rgba(99,102,241,0.2); }
+                .pv-btn-save-edit { font-size:0.68rem; font-weight:800; padding:5px 14px; border-radius:0.6rem; cursor:pointer; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; transition:all 0.2s; text-transform:uppercase; letter-spacing:0.04em; }
+                .pv-btn-save-edit:disabled { opacity:0.4; cursor:not-allowed; }
+                .pv-btn-cancel-edit { font-size:0.68rem; font-weight:800; padding:5px 14px; border-radius:0.6rem; cursor:pointer; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#64748b; transition:all 0.2s; text-transform:uppercase; letter-spacing:0.04em; }
+                .pv-btn-cancel-edit:hover { color:#94a3b8; border-color:rgba(255,255,255,0.2); }
 
                 @keyframes spin { to { transform:rotate(360deg); } }
                 .pv-spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.2); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
@@ -493,6 +551,16 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                         <div className="pv-data-cell">
                                             <div className="pv-data-label">💰 Cargo Fijo</div>
                                             <div className="pv-data-value">S/ {cuenta.cargoFijo || '—'}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <div className="pv-data-cell">
+                                            <div className="pv-data-label">🔖 SR Ingreso</div>
+                                            <div className="pv-data-value" style={{ color: '#818cf8', fontFamily: 'monospace' }}>{cuenta.srIngreso || '—'}</div>
+                                        </div>
+                                        <div className="pv-data-cell">
+                                            <div className="pv-data-label">📋 N° Orden</div>
+                                            <div className="pv-data-value" style={{ color: '#fbbf24', fontFamily: 'monospace' }}>{cuenta.numOrden || '—'}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -649,6 +717,15 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                         </div>
                     </div>
 
+                    {/* Búsqueda por RUC */}
+                    <input
+                        className="pv-hist-search"
+                        type="text"
+                        placeholder="🔍  Buscar por RUC o razón social..."
+                        value={searchHistRuc}
+                        onChange={e => setSearchHistRuc(e.target.value)}
+                    />
+
                     {isJefeBO && (
                         <div className="pv-hist-filters">
                             <span className="pv-filter-label">Filtrar:</span>
@@ -686,8 +763,18 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                 const sc = getSeg(h.segmento);
                                 const ec = getEstadoCfg(h.estado);
                                 const fileIds = h.evidenciaIds ? h.evidenciaIds.split(',').filter(Boolean) : [];
+                                const isEditing = editingId === h.id;
+
+                                // Edit derived state
+                                const editCfg = editEstado ? ESTADOS[editEstado] : null;
+                                const editMotivosDisp = editCfg?.motivos ?? [];
+                                const editRequiereMotivo = editMotivosDisp.length > 0;
+                                const editMotivoObj = editMotivosDisp.find(m => m.key === editMotivo);
+                                const editSubmotivosDisp = editMotivoObj?.submotivos ?? [];
+                                const editRequiereSubmotivo = editSubmotivosDisp.length > 0;
+
                                 return (
-                                    <div className="pv-hist-card" key={i}>
+                                    <div className="pv-hist-card" key={i} style={isEditing ? { borderColor: 'rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.04)' } : {}}>
                                         <div className="pv-hist-header">
                                             <div>
                                                 <div className="pv-hist-nombre">{h.razonSocial}</div>
@@ -703,7 +790,9 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                                 <span className="pv-hist-fecha">{h.fecha}</span>
                                             </div>
                                         </div>
-                                        <div className="pv-hist-obs">{h.observacion}</div>
+
+                                        {!isEditing && <div className="pv-hist-obs">{h.observacion}</div>}
+
                                         <div className="pv-hist-meta">
                                             {isJefeBO && h.usuario && (
                                                 <span className="pv-hist-chip" style={{ color: '#a78bfa', borderColor: '#8b5cf640', background: 'rgba(139,92,246,0.08)' }}>
@@ -714,7 +803,9 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                             {h.submotivo && <span className="pv-hist-submotivo-chip">↳ {h.submotivo}</span>}
                                             {h.segmento && <span className="pv-hist-chip" style={{ color: sc.text, borderColor: sc.glow }}>{h.segmento}</span>}
                                             {h.telefono && <span className="pv-hist-chip">📞 {h.telefono}</span>}
-                                            {h.lineas && <span className="pv-hist-chip">📶 {h.lineas} líneas</span>}
+                                            {h.lineas && <span className="pv-hist-chip">📶 {h.lineas} lín.</span>}
+                                            {h.srIngreso && <span className="pv-hist-chip" style={{ color: '#818cf8' }}>🔖 {h.srIngreso}</span>}
+                                            {h.numOrden && <span className="pv-hist-chip" style={{ color: '#fbbf24' }}>📋 {h.numOrden}</span>}
                                             {h.ejecutivoOriginal && <span className="pv-hist-chip">👤 {h.ejecutivoOriginal}</span>}
                                             {fileIds.map((fid, fi) => (
                                                 <a key={fi} className="pv-hist-file-link"
@@ -723,7 +814,46 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                                                     📎 Archivo {fi + 1}
                                                 </a>
                                             ))}
+                                            {!isEditing && (
+                                                <button className="pv-btn-edit" style={{ marginLeft: 'auto' }} onClick={() => startEditing(h)}>
+                                                    ✏ Editar
+                                                </button>
+                                            )}
                                         </div>
+
+                                        {/* Editor inline */}
+                                        {isEditing && (
+                                            <div className="pv-edit-box">
+                                                <div className="pv-edit-row">
+                                                    <select className="pv-edit-select" value={editEstado}
+                                                        onChange={e => { setEditEstado(e.target.value as EstadoKey); setEditMotivo(''); setEditSubmotivo(''); }}>
+                                                        <option value="">— Estado —</option>
+                                                        {ESTADO_KEYS.map(k => <option key={k} value={k}>{ESTADOS[k].emoji} {ESTADOS[k].label}</option>)}
+                                                    </select>
+                                                    {editRequiereMotivo && (
+                                                        <select className="pv-edit-select" value={editMotivo}
+                                                            onChange={e => { setEditMotivo(e.target.value); setEditSubmotivo(''); }}>
+                                                            <option value="">— Motivo —</option>
+                                                            {editMotivosDisp.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                                                        </select>
+                                                    )}
+                                                    {editRequiereSubmotivo && (
+                                                        <select className="pv-edit-select" value={editSubmotivo} onChange={e => setEditSubmotivo(e.target.value)}>
+                                                            <option value="">— Submotivo —</option>
+                                                            {editSubmotivosDisp.map(s => <option key={s} value={s}>{s}</option>)}
+                                                        </select>
+                                                    )}
+                                                </div>
+                                                <textarea className="pv-edit-textarea" rows={3} value={editObs} onChange={e => setEditObs(e.target.value)}
+                                                    placeholder="Observación..." />
+                                                <div className="pv-edit-actions">
+                                                    <button className="pv-btn-cancel-edit" onClick={() => setEditingId(null)} disabled={editSaving}>Cancelar</button>
+                                                    <button className="pv-btn-save-edit" onClick={() => handleUpdateHistorial(h.id)} disabled={editSaving || !editEstado || !editObs.trim()}>
+                                                        {editSaving ? 'Guardando...' : '✓ Guardar cambios'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

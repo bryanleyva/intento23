@@ -6,7 +6,7 @@ const SHEET_NAME = 'POSTVENTA_SEGUIMIENTO';
 
 const SHEET_HEADERS = [
     'ID', 'RUC', 'RAZON SOCIAL', 'TELEFONO', 'EJECUTIVO ORIGINAL',
-    'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'OBSERVACION',
+    'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'SR_INGRESO', 'NUM_ORDEN', 'OBSERVACION',
     'ESTADO', 'MOTIVO', 'SUBMOTIVO', 'EVIDENCIA_IDS', 'USUARIO', 'FECHA',
 ];
 
@@ -19,6 +19,8 @@ export interface PostVentaObservacion {
     lineas: string;
     cargoFijo: string;
     segmento: string;
+    srIngreso: string;
+    numOrden: string;
     observacion: string;
     estado: string;
     motivo: string;
@@ -38,6 +40,8 @@ function mapRow(r: any): PostVentaObservacion {
         lineas: r.get('LINEAS') || '',
         cargoFijo: r.get('CARGO FIJO') || '',
         segmento: r.get('SEGMENTO') || '',
+        srIngreso: r.get('SR_INGRESO') || '',
+        numOrden: r.get('NUM_ORDEN') || '',
         observacion: r.get('OBSERVACION') || '',
         estado: r.get('ESTADO') || '',
         motivo: r.get('MOTIVO') || '',
@@ -74,6 +78,8 @@ export async function savePostVentaObservacion(data: {
     lineas: string;
     cargoFijo: string;
     segmento: string;
+    srIngreso?: string;
+    numOrden?: string;
     observacion: string;
     estado: string;
     motivo?: string;
@@ -97,6 +103,8 @@ export async function savePostVentaObservacion(data: {
             'LINEAS': data.lineas,
             'CARGO FIJO': data.cargoFijo,
             'SEGMENTO': data.segmento,
+            'SR_INGRESO': data.srIngreso || '',
+            'NUM_ORDEN': data.numOrden || '',
             'OBSERVACION': data.observacion,
             'ESTADO': data.estado,
             'MOTIVO': data.motivo || '',
