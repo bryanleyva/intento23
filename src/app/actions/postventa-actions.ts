@@ -6,7 +6,7 @@ const SHEET_NAME = 'POSTVENTA_SEGUIMIENTO';
 
 const SHEET_HEADERS = [
     'ID', 'RUC', 'RAZON SOCIAL', 'TELEFONO', 'EJECUTIVO ORIGINAL',
-    'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'SR_INGRESO', 'NUM_ORDEN', 'OBSERVACION',
+    'LINEAS', 'CARGO FIJO', 'SEGMENTO', 'DISTRITO', 'SR_INGRESO', 'NUM_ORDEN', 'OBSERVACION',
     'ESTADO', 'MOTIVO', 'SUBMOTIVO', 'EVIDENCIA_IDS', 'USUARIO', 'FECHA',
 ];
 
@@ -19,6 +19,7 @@ export interface PostVentaObservacion {
     lineas: string;
     cargoFijo: string;
     segmento: string;
+    distrito: string;
     srIngreso: string;
     numOrden: string;
     observacion: string;
@@ -40,6 +41,7 @@ function mapRow(r: any): PostVentaObservacion {
         lineas: r.get('LINEAS') || '',
         cargoFijo: r.get('CARGO FIJO') || '',
         segmento: r.get('SEGMENTO') || '',
+        distrito: r.get('DISTRITO') || '',
         srIngreso: r.get('SR_INGRESO') || '',
         numOrden: r.get('NUM_ORDEN') || '',
         observacion: r.get('OBSERVACION') || '',
@@ -78,6 +80,7 @@ export async function savePostVentaObservacion(data: {
     lineas: string;
     cargoFijo: string;
     segmento: string;
+    distrito?: string;
     srIngreso?: string;
     numOrden?: string;
     observacion: string;
@@ -104,6 +107,7 @@ export async function savePostVentaObservacion(data: {
             existing.set('LINEAS', data.lineas);
             existing.set('CARGO FIJO', data.cargoFijo);
             existing.set('SEGMENTO', data.segmento);
+            existing.set('DISTRITO', data.distrito || '');
             existing.set('SR_INGRESO', data.srIngreso || '');
             existing.set('NUM_ORDEN', data.numOrden || '');
             existing.set('OBSERVACION', data.observacion);
@@ -125,6 +129,7 @@ export async function savePostVentaObservacion(data: {
                 'LINEAS': data.lineas,
                 'CARGO FIJO': data.cargoFijo,
                 'SEGMENTO': data.segmento,
+                'DISTRITO': data.distrito || '',
                 'SR_INGRESO': data.srIngreso || '',
                 'NUM_ORDEN': data.numOrden || '',
                 'OBSERVACION': data.observacion,

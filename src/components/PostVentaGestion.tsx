@@ -223,6 +223,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 lineas: cuenta.lineas,
                 cargoFijo: cuenta.cargoFijo,
                 segmento: cuenta.segmento,
+                distrito: cuenta.distrito,
                 srIngreso: cuenta.srIngreso,
                 numOrden: cuenta.numOrden,
                 observacion: obs.trim(),
@@ -266,6 +267,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             'Líneas': h.lineas ?? '',
             'Cargo Fijo': h.cargoFijo ?? '',
             'Segmento': h.segmento ?? '',
+            'Distrito': h.distrito ?? '',
             'SR Ingreso': h.srIngreso ?? '',
             'N° Orden': h.numOrden ?? '',
             'Observación': h.observacion ?? '',
@@ -279,7 +281,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         const ws = XLSX.utils.json_to_sheet(rows);
         ws['!cols'] = [
             { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 30 },
-            { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+            { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
             { wch: 60 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 22 }, { wch: 20 },
         ];
         const wb = XLSX.utils.book_new();
