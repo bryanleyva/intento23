@@ -90,29 +90,52 @@ export async function savePostVentaObservacion(data: {
     try {
         const sheet = await getOrCreateSheet();
         const rows = await sheet.getRows();
-        const ids = rows.map(r => parseInt(r.get('ID'))).filter(n => !isNaN(n));
-        const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
         const now = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
 
-        await sheet.addRow({
-            'ID': nextId.toString(),
-            'RUC': data.ruc,
-            'RAZON SOCIAL': data.razonSocial,
-            'TELEFONO': data.telefono,
-            'EJECUTIVO ORIGINAL': data.ejecutivoOriginal,
-            'LINEAS': data.lineas,
-            'CARGO FIJO': data.cargoFijo,
-            'SEGMENTO': data.segmento,
-            'SR_INGRESO': data.srIngreso || '',
-            'NUM_ORDEN': data.numOrden || '',
-            'OBSERVACION': data.observacion,
-            'ESTADO': data.estado,
-            'MOTIVO': data.motivo || '',
-            'SUBMOTIVO': data.submotivo || '',
-            'EVIDENCIA_IDS': data.evidenciaIds || '',
-            'USUARIO': data.usuario,
-            'FECHA': now,
-        });
+        // Upsert: update existing row for this RUC+usuario, otherwise create new
+        const existing = rows.find(r =>
+            (r.get('RUC') || '').trim() === data.ruc.trim() &&
+            (r.get('USUARIO') || '').trim().toLowerCase() === data.usuario.trim().toLowerCase()
+        );
+
+        if (existing) {
+            existing.set('TELEFONO', data.telefono);
+            existing.set('EJECUTIVO ORIGINAL', data.ejecutivoOriginal);
+            existing.set('LINEAS', data.lineas);
+            existing.set('CARGO FIJO', data.cargoFijo);
+            existing.set('SEGMENTO', data.segmento);
+            existing.set('SR_INGRESO', data.srIngreso || '');
+            existing.set('NUM_ORDEN', data.numOrden || '');
+            existing.set('OBSERVACION', data.observacion);
+            existing.set('ESTADO', data.estado);
+            existing.set('MOTIVO', data.motivo || '');
+            existing.set('SUBMOTIVO', data.submotivo || '');
+            existing.set('EVIDENCIA_IDS', data.evidenciaIds || '');
+            existing.set('FECHA', now);
+            await existing.save();
+        } else {
+            const ids = rows.map(r => parseInt(r.get('ID'))).filter(n => !isNaN(n));
+            const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+            await sheet.addRow({
+                'ID': nextId.toString(),
+                'RUC': data.ruc,
+                'RAZON SOCIAL': data.razonSocial,
+                'TELEFONO': data.telefono,
+                'EJECUTIVO ORIGINAL': data.ejecutivoOriginal,
+                'LINEAS': data.lineas,
+                'CARGO FIJO': data.cargoFijo,
+                'SEGMENTO': data.segmento,
+                'SR_INGRESO': data.srIngreso || '',
+                'NUM_ORDEN': data.numOrden || '',
+                'OBSERVACION': data.observacion,
+                'ESTADO': data.estado,
+                'MOTIVO': data.motivo || '',
+                'SUBMOTIVO': data.submotivo || '',
+                'EVIDENCIA_IDS': data.evidenciaIds || '',
+                'USUARIO': data.usuario,
+                'FECHA': now,
+            });
+        }
 
         return { success: true };
     } catch (error) {
