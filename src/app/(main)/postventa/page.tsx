@@ -85,12 +85,12 @@ export default async function PostVentaPage() {
         );
     }
 
-    // Regular users (ANDREA, ADMIN, cargo POSTVENTA)
-    const result = await getPostVentaData();
+    // Regular users (ANDREA, ADMIN, cargo POSTVENTA) — run both in parallel
+    const [result, histResult] = await Promise.all([
+        getPostVentaData(),
+        getPostVentaHistorial(userName),
+    ]);
     const data = result.success ? (result.data ?? []) : [];
-
-    // Compute which accounts are "done" based on latest estado per RUC
-    const histResult = await getPostVentaHistorial(userName);
     const histList = histResult.data ?? [];
     // histList is reversed (newest first) — first occurrence per RUC = latest
     const latestEstadoByRuc = new Map<string, string>();

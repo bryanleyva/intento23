@@ -2,6 +2,8 @@
 
 import { doc, loadDoc } from '@/lib/google-sheets';
 import { LeadCache } from '@/lib/lead-cache';
+import { LeadCacheSpecial } from '@/lib/lead-cache-special';
+import { LeadCacheLinda } from '@/lib/lead-cache-linda';
 import { UserCache } from '@/lib/user-cache';
 
 export async function getNextLead(userEmail: string, userName: string) {
@@ -280,39 +282,31 @@ export async function getLeadByRuc(ruc: string) {
 export async function getTouchedLeads() {
     try {
         const cache = LeadCache.getInstance();
-        await cache.ensureInitialized();
-
+        const cacheSpecial = LeadCacheSpecial.getInstance();
+        const cacheLinda = LeadCacheLinda.getInstance();
         const userCache = UserCache.getInstance();
-        await userCache.ensureInitialized();
 
-        const allRows = cache.getAll();
+        await Promise.all([
+            cache.ensureInitialized(),
+            cacheSpecial.ensureInitialized(),
+            cacheLinda.ensureInitialized(),
+            userCache.ensureInitialized(),
+        ]);
 
-        const touched = allRows.filter(row => {
+        const isTouched = (row: any) => {
             const ejecutivo = row.get('EJECUTIVO');
             if (!ejecutivo || ejecutivo.trim().length === 0) return false;
-
             const estado = (row.get('ESTADO') || '').trim().toUpperCase();
             const observacion = (row.get('OBSERVACIONES') || '').trim();
             const hasAgendamiento = (row.get('FECHA AGENDAMIENTO') || '').trim() !== '';
-
-            // NEW RULE: Include any record where status is NOT PENDING and NOT EMPTY
-            if (estado !== 'PENDIENTE' && estado !== '') {
-                return true;
-            }
-
-            // Fallback for PENDING but with activity
-            if ((estado === 'PENDIENTE' || estado === '') && (observacion !== '' || hasAgendamiento)) {
-                return true;
-            }
-
+            if (estado !== 'PENDIENTE' && estado !== '') return true;
+            if ((estado === 'PENDIENTE' || estado === '') && (observacion !== '' || hasAgendamiento)) return true;
             return false;
-        });
+        };
 
-        // Map to full objects for detailed view
-        const data = touched.map(row => {
+        const mapRow = (row: any, base: string) => {
             const execName = row.get('EJECUTIVO');
             const userRow = userCache.findUser(execName);
-
             return {
                 rowIndex: (row as any).rowIndex,
                 ruc: row.get('RUC'),
@@ -338,9 +332,16 @@ export async function getTouchedLeads() {
                 operadorActual: row.get('OPERADOR'),
                 ejecutivo: execName,
                 ejecutivoCargo: userRow?.get('CARGO') || 'EJECUTIVO DE VENTAS',
-                ejecutivoSupervisor: userRow?.get('SUPERVISOR') || 'N/A'
+                ejecutivoSupervisor: userRow?.get('SUPERVISOR') || 'N/A',
+                base,
             };
-        });
+        };
+
+        const data = [
+            ...cache.getAll().filter(isTouched).map(r => mapRow(r, 'RYDERS')),
+            ...cacheSpecial.getAll().filter(isTouched).map(r => mapRow(r, 'ESPECIAL')),
+            ...cacheLinda.getAll().filter(isTouched).map(r => mapRow(r, 'LINDA')),
+        ];
 
         return { success: true, data };
 

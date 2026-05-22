@@ -707,6 +707,19 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
                                                                                     <span className="uppercase tracking-wider font-bold mr-2 text-yellow-500">Operador:</span>
                                                                                     <span className="text-white font-bold">{lead.operadorActual || '-'}</span>
                                                                                 </div>
+                                                                                {lead.base && (
+                                                                                    <div style={{ marginLeft: 'auto' }}>
+                                                                                        <span style={{
+                                                                                            fontSize: '10px', fontWeight: 900, padding: '2px 10px', borderRadius: 999,
+                                                                                            background: lead.base === 'ESPECIAL' ? 'rgba(139,92,246,0.15)' : lead.base === 'LINDA' ? 'rgba(249,115,22,0.15)' : 'rgba(16,185,129,0.15)',
+                                                                                            color: lead.base === 'ESPECIAL' ? '#a78bfa' : lead.base === 'LINDA' ? '#fb923c' : '#34d399',
+                                                                                            border: `1px solid ${lead.base === 'ESPECIAL' ? 'rgba(139,92,246,0.35)' : lead.base === 'LINDA' ? 'rgba(249,115,22,0.35)' : 'rgba(16,185,129,0.35)'}`,
+                                                                                            textTransform: 'uppercase' as const, letterSpacing: '0.1em',
+                                                                                        }}>
+                                                                                            BASE {lead.base}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 
