@@ -118,10 +118,16 @@ export async function getPostVentaData(): Promise<{ success: boolean; data?: Pos
             };
         });
 
-        // Sort newest first (by ID desc)
+        // Sort newest first (by ID desc), then deduplicate by RUC — keep latest activation per company
         data.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        const seen = new Set<string>();
+        const unique = data.filter(r => {
+            if (seen.has(r.ruc)) return false;
+            seen.add(r.ruc);
+            return true;
+        });
 
-        return { success: true, data };
+        return { success: true, data: unique };
     } catch (error) {
         console.error('Error in getPostVentaData:', error);
         return { success: false, error: 'Error al cargar datos de post venta' };
