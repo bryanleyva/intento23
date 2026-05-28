@@ -384,20 +384,7 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
             const currentYear = now.getFullYear();
             const monthName = now.toLocaleString('es-PE', { month: 'long', year: 'numeric' }).toUpperCase();
 
-            const parseActivityDate = (str: string): Date | null => {
-                if (!str) return null;
-                try {
-                    const datePart = str.split(',')[0].trim();
-                    const parts = datePart.split(/[/.-]/).map(p => p.trim());
-                    if (parts.length < 3) return null;
-                    let d: string, m: string, y: string;
-                    if (parts[2].length === 4) { [d, m, y] = parts; }
-                    else if (parts[0].length === 4) { [y, m, d] = parts; }
-                    else return null;
-                    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-                } catch { return null; }
-            };
-
+            // Parse "DD/MM/YYYY, HH:MM:SS" → Date
             const parseFullDate = (str: string): Date => {
                 if (!str) return new Date(0);
                 try {
@@ -407,16 +394,22 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
                 } catch { return new Date(0); }
             };
 
-            // Filter leads with activity in current month, applying permission filter
+            // Extract "DD/MM/YYYY" key from raw string
+            const dayKey = (str: string) => str.split(',')[0].trim(); // "DD/MM/YYYY"
+            // Extract "HH:MM:SS" from raw string
+            const timeOf = (str: string) => (str.split(', ')[1] || '').trim();
+
+            // Filter to current month, respecting permissions
             const monthLeads = leads.filter(l => {
                 if (currentUserRole === 'SPECIAL') {
                     const sup = (l.ejecutivoSupervisor || '').trim().toUpperCase();
                     const me = (currentUserName || '').trim().toUpperCase();
                     if (sup !== me) return false;
                 }
-                const trackDate = l.fechaFin || l.fechaInicio;
-                const d = parseActivityDate(trackDate);
-                return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                const raw = l.fechaFin || l.fechaInicio;
+                if (!raw) return false;
+                const d = parseFullDate(raw);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
             });
 
             if (monthLeads.length === 0) {
@@ -425,7 +418,7 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
             }
 
             AppSwal.fire({
-                title: 'Generando reporte mensual...',
+                title: 'Generando reporte diario...',
                 text: 'Por favor espere.',
                 allowOutsideClick: false,
                 didOpen: () => { (AppSwal as any).showLoading(); }
@@ -434,48 +427,104 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
             // @ts-ignore
             const ExcelJS = await import('exceljs/dist/exceljs.min.js');
             const workbook = new ExcelJS.Workbook();
-            const ws = workbook.addWorksheet(`Reporte ${monthName}`);
 
-            // Group by executive
-            const byExec: Record<string, { dates: Date[]; rawDates: string[]; total: number }> = {};
+            // ── SHEET 1: Detalle diario por persona ──────────────────────
+            const wsDetalle = workbook.addWorksheet('Detalle Diario');
+
+            // Build: { exec → { "DD/MM/YYYY" → [Date, ...] } }
+            const byExecDay: Record<string, Record<string, Date[]>> = {};
             monthLeads.forEach(l => {
                 const exec = l.ejecutivo || 'SIN EJECUTIVO';
                 const raw = l.fechaFin || l.fechaInicio || '';
-                const fullDate = parseFullDate(raw);
-                if (!byExec[exec]) byExec[exec] = { dates: [], rawDates: [], total: 0 };
-                byExec[exec].dates.push(fullDate);
-                byExec[exec].rawDates.push(raw);
-                byExec[exec].total++;
+                const d = parseFullDate(raw);
+                const dk = dayKey(raw);
+                if (!byExecDay[exec]) byExecDay[exec] = {};
+                if (!byExecDay[exec][dk]) byExecDay[exec][dk] = [];
+                byExecDay[exec][dk].push(d);
             });
 
             // Headers
-            ws.addRow(['EJECUTIVO', 'PRIMERA GESTIÓN', 'ÚLTIMA GESTIÓN', 'DÍAS TRABAJADOS', 'TOTAL GESTIONES MES']);
-            const headerRow = ws.getRow(1);
-            headerRow.eachCell((cell: any) => {
+            wsDetalle.addRow(['EJECUTIVO', 'FECHA', 'HORA INICIO', 'HORA FIN', 'GESTIONES DEL DÍA']);
+            const hRow = wsDetalle.getRow(1);
+            hRow.eachCell((cell: any) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
                 cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
-            ws.getRow(1).height = 22;
+            wsDetalle.getRow(1).height = 22;
 
-            // Sort execs alphabetically
-            const execsSorted = Object.keys(byExec).sort();
+            const execsSorted = Object.keys(byExecDay).sort();
+            let rowIdx = 0;
+            execsSorted.forEach(exec => {
+                // Sort days ascending
+                const days = Object.keys(byExecDay[exec]).sort((a, b) => {
+                    const [da, ma, ya] = a.split('/').map(Number);
+                    const [db, mb, yb] = b.split('/').map(Number);
+                    return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+                });
+
+                days.forEach(day => {
+                    const times = byExecDay[exec][day].sort((a, b) => a.getTime() - b.getTime());
+                    const horaInicio = times[0].toTimeString().slice(0, 8);  // HH:MM:SS
+                    const horaFin = times[times.length - 1].toTimeString().slice(0, 8);
+                    const total = times.length;
+
+                    const row = wsDetalle.addRow([exec, day, horaInicio, horaFin, total]);
+                    const isEven = rowIdx % 2 === 0;
+                    row.eachCell({ includeEmpty: true }, (cell: any, col: number) => {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FF18181B' : 'FF09090B' } };
+                        cell.font = { color: { argb: 'FFE4E4E7' }, size: 10 };
+                        cell.border = { top: { style: 'thin', color: { argb: 'FF27272A' } }, left: { style: 'thin', color: { argb: 'FF27272A' } }, bottom: { style: 'thin', color: { argb: 'FF27272A' } }, right: { style: 'thin', color: { argb: 'FF27272A' } } };
+                        cell.alignment = { vertical: 'middle', horizontal: col === 1 || col === 2 ? 'left' : 'center' };
+                        if (col === 3) cell.font = { color: { argb: 'FF34D399' }, size: 10, bold: true }; // inicio verde
+                        if (col === 4) cell.font = { color: { argb: 'FF818CF8' }, size: 10, bold: true }; // fin violeta
+                        if (col === 5) {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF052E16' } };
+                            cell.font = { color: { argb: 'FF34D399' }, bold: true, size: 11 };
+                        }
+                    });
+                    rowIdx++;
+                });
+            });
+
+            wsDetalle.getColumn(1).width = 38;
+            wsDetalle.getColumn(2).width = 16;
+            wsDetalle.getColumn(3).width = 14;
+            wsDetalle.getColumn(4).width = 14;
+            wsDetalle.getColumn(5).width = 20;
+
+            // ── SHEET 2: Resumen mensual por persona ─────────────────────
+            const wsResumen = workbook.addWorksheet('Resumen Mensual');
+            wsResumen.addRow(['EJECUTIVO', 'PRIMERA GESTIÓN DEL MES', 'ÚLTIMA GESTIÓN DEL MES', 'DÍAS TRABAJADOS', 'TOTAL GESTIONES MES']);
+            const hRes = wsResumen.getRow(1);
+            hRes.eachCell((cell: any) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+                cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+            wsResumen.getRow(1).height = 22;
+
             execsSorted.forEach((exec, i) => {
-                const { dates, rawDates, total } = byExec[exec];
-                const sorted = dates.map((d, idx) => ({ d, raw: rawDates[idx] })).sort((a, b) => a.d.getTime() - b.d.getTime());
-                const first = sorted[0].raw;
-                const last = sorted[sorted.length - 1].raw;
-                const uniqueDays = new Set(sorted.map(s => s.raw.split(',')[0].trim())).size;
+                const allTimes = Object.values(byExecDay[exec]).flat().sort((a, b) => a.getTime() - b.getTime());
+                const fmt = (d: Date) => {
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const yy = d.getFullYear();
+                    const hh = d.toTimeString().slice(0, 8);
+                    return `${dd}/${mm}/${yy}, ${hh}`;
+                };
+                const dias = Object.keys(byExecDay[exec]).length;
+                const total = allTimes.length;
 
-                const row = ws.addRow([exec, first, last, uniqueDays, total]);
+                const row = wsResumen.addRow([exec, fmt(allTimes[0]), fmt(allTimes[allTimes.length - 1]), dias, total]);
                 const isEven = i % 2 === 0;
                 row.eachCell({ includeEmpty: true }, (cell: any, col: number) => {
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FF18181B' : 'FF09090B' } };
                     cell.font = { color: { argb: 'FFE4E4E7' }, size: 10 };
                     cell.border = { top: { style: 'thin', color: { argb: 'FF27272A' } }, left: { style: 'thin', color: { argb: 'FF27272A' } }, bottom: { style: 'thin', color: { argb: 'FF27272A' } }, right: { style: 'thin', color: { argb: 'FF27272A' } } };
                     cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'left' : 'center' };
-                    // Highlight total column
                     if (col === 5) {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF052E16' } };
                         cell.font = { color: { argb: 'FF34D399' }, bold: true, size: 11 };
@@ -483,26 +532,26 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
                 });
             });
 
-            // Column widths
-            ws.getColumn(1).width = 38;
-            ws.getColumn(2).width = 26;
-            ws.getColumn(3).width = 26;
-            ws.getColumn(4).width = 18;
-            ws.getColumn(5).width = 22;
+            wsResumen.getColumn(1).width = 38;
+            wsResumen.getColumn(2).width = 26;
+            wsResumen.getColumn(3).width = 26;
+            wsResumen.getColumn(4).width = 18;
+            wsResumen.getColumn(5).width = 22;
 
+            // ── Export ────────────────────────────────────────────────────
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Reporte_Mensual_${monthName.replace(/ /g, '_')}.xlsx`;
+            link.download = `Reporte_Diario_${monthName.replace(/ /g, '_')}.xlsx`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             AppSwal.close();
         } catch (error) {
             console.error('Export mensual error:', error);
-            AppSwal.fire({ title: 'Error', text: 'No se pudo generar el reporte mensual', icon: 'error' });
+            AppSwal.fire({ title: 'Error', text: 'No se pudo generar el reporte', icon: 'error' });
         }
     };
 
