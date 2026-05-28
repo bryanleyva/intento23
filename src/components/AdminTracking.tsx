@@ -377,6 +377,135 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
         }
     };
 
+    const handleExportMensual = async () => {
+        try {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const monthName = now.toLocaleString('es-PE', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            const parseActivityDate = (str: string): Date | null => {
+                if (!str) return null;
+                try {
+                    const datePart = str.split(',')[0].trim();
+                    const parts = datePart.split(/[/.-]/).map(p => p.trim());
+                    if (parts.length < 3) return null;
+                    let d: string, m: string, y: string;
+                    if (parts[2].length === 4) { [d, m, y] = parts; }
+                    else if (parts[0].length === 4) { [y, m, d] = parts; }
+                    else return null;
+                    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+                } catch { return null; }
+            };
+
+            const parseFullDate = (str: string): Date => {
+                if (!str) return new Date(0);
+                try {
+                    const [dPart, tPart] = str.split(', ');
+                    const [day, month, year] = dPart.split('/').map(p => p.trim());
+                    return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${tPart || '00:00:00'}`);
+                } catch { return new Date(0); }
+            };
+
+            // Filter leads with activity in current month, applying permission filter
+            const monthLeads = leads.filter(l => {
+                if (currentUserRole === 'SPECIAL') {
+                    const sup = (l.ejecutivoSupervisor || '').trim().toUpperCase();
+                    const me = (currentUserName || '').trim().toUpperCase();
+                    if (sup !== me) return false;
+                }
+                const trackDate = l.fechaFin || l.fechaInicio;
+                const d = parseActivityDate(trackDate);
+                return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            });
+
+            if (monthLeads.length === 0) {
+                AppSwal.fire({ title: 'Sin datos', text: `No hay gestiones registradas en ${monthName}.`, icon: 'warning' });
+                return;
+            }
+
+            AppSwal.fire({
+                title: 'Generando reporte mensual...',
+                text: 'Por favor espere.',
+                allowOutsideClick: false,
+                didOpen: () => { (AppSwal as any).showLoading(); }
+            });
+
+            // @ts-ignore
+            const ExcelJS = await import('exceljs/dist/exceljs.min.js');
+            const workbook = new ExcelJS.Workbook();
+            const ws = workbook.addWorksheet(`Reporte ${monthName}`);
+
+            // Group by executive
+            const byExec: Record<string, { dates: Date[]; rawDates: string[]; total: number }> = {};
+            monthLeads.forEach(l => {
+                const exec = l.ejecutivo || 'SIN EJECUTIVO';
+                const raw = l.fechaFin || l.fechaInicio || '';
+                const fullDate = parseFullDate(raw);
+                if (!byExec[exec]) byExec[exec] = { dates: [], rawDates: [], total: 0 };
+                byExec[exec].dates.push(fullDate);
+                byExec[exec].rawDates.push(raw);
+                byExec[exec].total++;
+            });
+
+            // Headers
+            ws.addRow(['EJECUTIVO', 'PRIMERA GESTIÓN', 'ÚLTIMA GESTIÓN', 'DÍAS TRABAJADOS', 'TOTAL GESTIONES MES']);
+            const headerRow = ws.getRow(1);
+            headerRow.eachCell((cell: any) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+                cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+            ws.getRow(1).height = 22;
+
+            // Sort execs alphabetically
+            const execsSorted = Object.keys(byExec).sort();
+            execsSorted.forEach((exec, i) => {
+                const { dates, rawDates, total } = byExec[exec];
+                const sorted = dates.map((d, idx) => ({ d, raw: rawDates[idx] })).sort((a, b) => a.d.getTime() - b.d.getTime());
+                const first = sorted[0].raw;
+                const last = sorted[sorted.length - 1].raw;
+                const uniqueDays = new Set(sorted.map(s => s.raw.split(',')[0].trim())).size;
+
+                const row = ws.addRow([exec, first, last, uniqueDays, total]);
+                const isEven = i % 2 === 0;
+                row.eachCell({ includeEmpty: true }, (cell: any, col: number) => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FF18181B' : 'FF09090B' } };
+                    cell.font = { color: { argb: 'FFE4E4E7' }, size: 10 };
+                    cell.border = { top: { style: 'thin', color: { argb: 'FF27272A' } }, left: { style: 'thin', color: { argb: 'FF27272A' } }, bottom: { style: 'thin', color: { argb: 'FF27272A' } }, right: { style: 'thin', color: { argb: 'FF27272A' } } };
+                    cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'left' : 'center' };
+                    // Highlight total column
+                    if (col === 5) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF052E16' } };
+                        cell.font = { color: { argb: 'FF34D399' }, bold: true, size: 11 };
+                    }
+                });
+            });
+
+            // Column widths
+            ws.getColumn(1).width = 38;
+            ws.getColumn(2).width = 26;
+            ws.getColumn(3).width = 26;
+            ws.getColumn(4).width = 18;
+            ws.getColumn(5).width = 22;
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Reporte_Mensual_${monthName.replace(/ /g, '_')}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            AppSwal.close();
+        } catch (error) {
+            console.error('Export mensual error:', error);
+            AppSwal.fire({ title: 'Error', text: 'No se pudo generar el reporte mensual', icon: 'error' });
+        }
+    };
+
     if (loading) return <div className="text-white text-center p-10 animate-fade-in">Cargando reporte...</div>;
 
     return (
@@ -508,6 +637,25 @@ export default function AdminTracking({ currentUserRole, currentUserName }: Prop
                                 }}
                             >
                                 <span style={{ fontSize: '1.2rem' }}>📊</span> EXPORTAR EXCEL
+                            </button>
+                        </div>
+
+                        {/* Monthly Report Button */}
+                        <div className="flex flex-col" style={{ gap: '0.75rem' }}>
+                            <label className="text-emerald-500/80" style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.2em', marginLeft: '0.5rem' }}>Reporte Mensual</label>
+                            <button
+                                onClick={handleExportMensual}
+                                className="refresh-btn-premium"
+                                style={{
+                                    width: '200px',
+                                    fontSize: '0.9rem',
+                                    gap: '0.8rem',
+                                    background: 'linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)',
+                                    border: 'none',
+                                    color: 'white'
+                                }}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>📅</span> REPORTE DEL MES
                             </button>
                         </div>
 
