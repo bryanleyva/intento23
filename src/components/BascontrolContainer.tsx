@@ -24,6 +24,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
     const allowedBases: BaseType[] = (userBases && userBases.length > 0) ? userBases : ALL_BASES;
     const [viewMode, setViewMode] = useState<'manage' | 'track' | 'assign' | 'bases'>(userRole === 'ADMIN' ? 'track' : 'manage');
     const [selectedBase, setSelectedBase] = useState<'RYDERS' | 'ESPECIAL' | 'LINDA' | null>(null);
+    const [assignSubMode, setAssignSubMode] = useState<'supervisors' | 'executives'>('supervisors');
 
     const handleViewChange = async (newMode: 'manage' | 'track' | 'assign' | 'bases') => {
         if (newMode === 'manage' && (userRole === 'ADMIN' || userRole === 'SPECIAL')) {
@@ -419,7 +420,45 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                         currentUserName={userName}
                     />
                 ) : userRole === 'ADMIN' ? (
-                    <SupervisorAssignmentPanel />
+                    <div>
+                        {/* Sub-toggle for ADMIN: assign to supervisors or directly to executives */}
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '1rem', padding: '4px', width: 'fit-content' }}>
+                            <button
+                                onClick={() => setAssignSubMode('supervisors')}
+                                style={{
+                                    padding: '8px 24px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900,
+                                    cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    transition: 'all 0.2s',
+                                    background: assignSubMode === 'supervisors' ? 'rgba(16,185,129,0.15)' : 'transparent',
+                                    color: assignSubMode === 'supervisors' ? '#34d399' : '#64748b',
+                                    boxShadow: assignSubMode === 'supervisors' ? 'inset 0 0 0 1px rgba(16,185,129,0.3)' : 'none',
+                                }}
+                            >
+                                🏢 Asignar a Supervisores
+                            </button>
+                            <button
+                                onClick={() => setAssignSubMode('executives')}
+                                style={{
+                                    padding: '8px 24px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900,
+                                    cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    transition: 'all 0.2s',
+                                    background: assignSubMode === 'executives' ? 'rgba(139,92,246,0.15)' : 'transparent',
+                                    color: assignSubMode === 'executives' ? '#a78bfa' : '#64748b',
+                                    boxShadow: assignSubMode === 'executives' ? 'inset 0 0 0 1px rgba(139,92,246,0.3)' : 'none',
+                                }}
+                            >
+                                👤 Asignar a Ejecutivos
+                            </button>
+                        </div>
+                        {assignSubMode === 'supervisors' ? (
+                            <SupervisorAssignmentPanel />
+                        ) : (
+                            <AssignmentPanel
+                                userRole={userRole}
+                                userName={userName}
+                            />
+                        )}
+                    </div>
                 ) : (
                     <AssignmentPanel
                         userRole={userRole}
