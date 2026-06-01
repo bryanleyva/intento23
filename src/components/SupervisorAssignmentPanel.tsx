@@ -15,7 +15,6 @@ interface SupervisorStat {
 }
 
 const RANGES = [
-    { id: '1-4', label: '1 a 4 Lins', short: '1-4 LINS' },
     { id: '5-10', label: '5 a 10 Lins', short: '5-10 LINS' },
     { id: '11-15', label: '11 a 15 Lins', short: '11-15 LINS' },
     { id: '16-21', label: '16 a 21 Lins', short: '16-21 LINS' },
@@ -33,7 +32,7 @@ export default function SupervisorAssignmentPanel() {
     const [showModal, setShowModal] = useState(false);
     const [selected, setSelected] = useState<SupervisorStat | null>(null);
     const [quantity, setQuantity] = useState(50);
-    const [rangeId, setRangeId] = useState('1-4');
+    const [rangeId, setRangeId] = useState('5-10');
     const [assigning, setAssigning] = useState(false);
 
     useEffect(() => {

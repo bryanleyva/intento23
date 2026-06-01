@@ -21,7 +21,7 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
 
     // Assignment Form
     const [quantity, setQuantity] = useState(10);
-    const [rangeId, setRangeId] = useState('1-4');
+    const [rangeId, setRangeId] = useState('5-10');
     const [assigning, setAssigning] = useState(false);
 
     useEffect(() => {
@@ -154,7 +154,7 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                 </div>
 
                 <div className="stockGrid">
-                    {Object.entries(stock).map(([range, count]) => (
+                    {Object.entries(stock).filter(([range]) => range !== '1-4').map(([range, count]) => (
                         <div key={range} className="stockItem">
                             <span className="stockRange">{range} Lins</span>
                             <span className="stockCount">{count}</span>
@@ -241,7 +241,6 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                                     <label className="fieldLabel">Rango de Líneas</label>
                                     <div className="rangeGrid">
                                         {[
-                                            { id: '1-4', label: '1 a 4 Lins' },
                                             { id: '5-10', label: '5 a 10 Lins' },
                                             { id: '11-15', label: '11 a 15 Lins' },
                                             { id: '16-21', label: '16 a 21 Lins' },
