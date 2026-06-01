@@ -99,15 +99,22 @@ export class LeadCacheSpecial {
         executiveName: string,
         quantity: number,
         criteria: (row: any) => boolean,
-        fechaInicio: string
+        fechaInicio: string,
+        poolSupervisor?: string
     ): Promise<{ success: boolean; count: number; error?: string }> {
         return this.runLocked(async () => {
             try {
                 await this._refresh();
+                const normPool = poolSupervisor ? poolSupervisor.trim().toLowerCase() : null;
                 const candidates = this.rows.filter(row => {
                     const exec = (row.get('EJECUTIVO') || '').trim();
                     const ruc = row.get('RUC');
-                    return ruc && exec === '' && criteria(row);
+                    if (!ruc || exec !== '' || !criteria(row)) return false;
+                    if (normPool) {
+                        const sup = (row.get('SUPERVISOR') || '').trim().toLowerCase();
+                        if (sup !== normPool) return false;
+                    }
+                    return true;
                 }).slice(0, quantity);
 
                 if (candidates.length === 0) {
@@ -124,6 +131,49 @@ export class LeadCacheSpecial {
                 return { success: true, count };
             } catch (error: any) {
                 return { success: false, count: 0, error: error.message || 'Error en asignación' };
+            }
+        });
+    }
+
+    private async ensureSupervisorColumnInternal() {
+        await loadDoc();
+        const sheet = doc.sheetsByTitle['BASE SPECIAL'];
+        if (!sheet) return;
+        await sheet.loadHeaderRow();
+        if (!sheet.headerValues.includes('SUPERVISOR')) {
+            await sheet.setHeaderRow([...sheet.headerValues, 'SUPERVISOR']);
+        }
+    }
+
+    public async batchAssignSupervisorByCriteria(
+        supervisorName: string,
+        quantity: number,
+        criteria: (row: any) => boolean
+    ): Promise<{ success: boolean; count: number; error?: string }> {
+        return this.runLocked(async () => {
+            try {
+                await this.ensureSupervisorColumnInternal();
+                await this._refresh();
+
+                const candidates = this.rows.filter(row => {
+                    const exec = (row.get('EJECUTIVO') || '').trim();
+                    const sup = (row.get('SUPERVISOR') || '').trim();
+                    const ruc = row.get('RUC');
+                    return ruc && exec === '' && sup === '' && criteria(row);
+                }).slice(0, quantity);
+
+                if (candidates.length === 0) {
+                    return { success: false, count: 0, error: 'No hay leads disponibles en el stock global para este criterio.' };
+                }
+
+                let count = 0;
+                for (const row of candidates) {
+                    row.set('SUPERVISOR', supervisorName);
+                    try { await row.save(); count++; } catch (e) { console.error(e); }
+                }
+                return { success: true, count };
+            } catch (error: any) {
+                return { success: false, count: 0, error: error.message || 'Error en distribución de base' };
             }
         });
     }

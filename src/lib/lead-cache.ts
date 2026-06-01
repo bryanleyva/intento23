@@ -142,7 +142,8 @@ export class LeadCache {
         executiveName: string,
         quantity: number,
         criteria: (row: any) => boolean,
-        fechaInicio: string
+        fechaInicio: string,
+        poolSupervisor?: string
     ): Promise<{ success: boolean, count: number, error?: string }> {
         return this.runLocked(async () => {
             try {
@@ -150,11 +151,19 @@ export class LeadCache {
                 // We call the internal _refresh here because we are already inside a runLocked block
                 await this._refresh();
 
-                // 2. Filter candidates that are TRULY available right now
+                // 2. Filter candidates that are TRULY available right now.
+                // When poolSupervisor is provided (two-tier flow), only leads that the admin
+                // already handed to this supervisor (SUPERVISOR === poolSupervisor) are eligible.
+                const normPool = poolSupervisor ? poolSupervisor.trim().toLowerCase() : null;
                 const availableCandidates = this.rows.filter(row => {
                     const exec = (row.get('EJECUTIVO') || '').trim();
                     const ruc = row.get('RUC');
-                    return ruc && exec === '' && criteria(row);
+                    if (!ruc || exec !== '' || !criteria(row)) return false;
+                    if (normPool) {
+                        const sup = (row.get('SUPERVISOR') || '').trim().toLowerCase();
+                        if (sup !== normPool) return false;
+                    }
+                    return true;
                 }).slice(0, quantity);
 
                 if (availableCandidates.length === 0) {
@@ -181,6 +190,67 @@ export class LeadCache {
             } catch (error: any) {
                 console.error('Error in batchAssignByCriteria:', error);
                 return { success: false, count: 0, error: error.message || 'Error en asignación masiva' };
+            }
+        });
+    }
+
+    /**
+     * Ensures the BASE CLARO sheet has a SUPERVISOR column (used by the two-tier
+     * Admin -> Supervisor distribution). Self-heals the header if missing.
+     * Must be called from inside a locked block (no internal lock here).
+     */
+    private async ensureSupervisorColumnInternal() {
+        await loadDoc();
+        const sheet = doc.sheetsByTitle['BASE CLARO'];
+        if (!sheet) return;
+        await sheet.loadHeaderRow();
+        if (!sheet.headerValues.includes('SUPERVISOR')) {
+            await sheet.setHeaderRow([...sheet.headerValues, 'SUPERVISOR']);
+        }
+    }
+
+    /**
+     * ADMIN -> SUPERVISOR DISTRIBUTION
+     * Tags leads from the GLOBAL stock (no executive AND no supervisor yet) with a
+     * supervisor, building that supervisor's pool. Executives are assigned later by
+     * the supervisor from their own pool.
+     */
+    public async batchAssignSupervisorByCriteria(
+        supervisorName: string,
+        quantity: number,
+        criteria: (row: any) => boolean
+    ): Promise<{ success: boolean, count: number, error?: string }> {
+        return this.runLocked(async () => {
+            try {
+                await this.ensureSupervisorColumnInternal();
+                await this._refresh();
+
+                const candidates = this.rows.filter(row => {
+                    const exec = (row.get('EJECUTIVO') || '').trim();
+                    const sup = (row.get('SUPERVISOR') || '').trim();
+                    const ruc = row.get('RUC');
+                    return ruc && exec === '' && sup === '' && criteria(row);
+                }).slice(0, quantity);
+
+                if (candidates.length === 0) {
+                    return { success: false, count: 0, error: 'No hay leads disponibles en el stock global para este criterio.' };
+                }
+
+                let count = 0;
+                for (const row of candidates) {
+                    row.set('SUPERVISOR', supervisorName);
+                    try {
+                        await row.save();
+                        count++;
+                    } catch (e) {
+                        console.error(`Error saving supervisor assignment for RUC ${row.get('RUC')}:`, e);
+                    }
+                }
+
+                return { success: true, count };
+            } catch (error: any) {
+                console.error('Error in batchAssignSupervisorByCriteria:', error);
+                return { success: false, count: 0, error: error.message || 'Error en distribución de base' };
             }
         });
     }

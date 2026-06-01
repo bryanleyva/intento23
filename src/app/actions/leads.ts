@@ -1586,17 +1586,23 @@ export async function getExecutiveAssignmentStats(userRole?: string, userName?: 
             '30+': 0
         };
 
+        // GATE: a supervisor only sees the stock from their own pool (leads the admin
+        // assigned to them, SUPERVISOR === userName and still without executive).
+        const normPool = (userRole === 'SPECIAL' && userName) ? userName.trim().toLowerCase() : null;
         allLeads.forEach(row => {
             const exec = (row.get('EJECUTIVO') || '').trim();
-            if (exec === '') {
-                const lineas = parseInt(row.get('CANTIDAD LINEAS') || '0');
-                if (lineas >= 1 && lineas <= 4) stock['1-4']++;
-                else if (lineas >= 5 && lineas <= 10) stock['5-10']++;
-                else if (lineas >= 11 && lineas <= 15) stock['11-15']++;
-                else if (lineas >= 16 && lineas <= 21) stock['16-21']++;
-                else if (lineas >= 22 && lineas <= 30) stock['22-30']++;
-                else if (lineas > 30) stock['30+']++;
+            if (exec !== '') return;
+            if (normPool) {
+                const sup = (row.get('SUPERVISOR') || '').trim().toLowerCase();
+                if (sup !== normPool) return;
             }
+            const lineas = parseInt(row.get('CANTIDAD LINEAS') || '0');
+            if (lineas >= 1 && lineas <= 4) stock['1-4']++;
+            else if (lineas >= 5 && lineas <= 10) stock['5-10']++;
+            else if (lineas >= 11 && lineas <= 15) stock['11-15']++;
+            else if (lineas >= 16 && lineas <= 21) stock['16-21']++;
+            else if (lineas >= 22 && lineas <= 30) stock['22-30']++;
+            else if (lineas > 30) stock['30+']++;
         });
 
         return { success: true, stats, stock };
@@ -1657,7 +1663,9 @@ export async function assignLeadsByCriteria(
             }
         };
 
-        const result = await cache.batchAssignByCriteria(executiveName, quantity, criteria, fechaInicio);
+        // GATE: supervisors can only draw from their own pool.
+        const poolSupervisor = (userRole === 'SPECIAL' && userName) ? userName : undefined;
+        const result = await cache.batchAssignByCriteria(executiveName, quantity, criteria, fechaInicio, poolSupervisor);
         return result;
 
     } catch (error) {

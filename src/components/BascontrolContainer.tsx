@@ -4,6 +4,7 @@ import { useState } from 'react';
 import LeadManager from "@/components/LeadManager";
 import AdminTracking from "@/components/AdminTracking";
 import AssignmentPanel from "@/components/AssignmentPanel";
+import SupervisorAssignmentPanel from "@/components/SupervisorAssignmentPanel";
 import { AppSwal } from '@/lib/sweetalert';
 
 interface Props {
@@ -398,6 +399,8 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                         currentUserRole={userRole}
                         currentUserName={userName}
                     />
+                ) : userRole === 'ADMIN' ? (
+                    <SupervisorAssignmentPanel />
                 ) : (
                     <AssignmentPanel
                         userRole={userRole}
