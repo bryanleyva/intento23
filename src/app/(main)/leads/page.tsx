@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import BascontrolContainer from "../../../components/BascontrolContainer";
+import { getUserBases } from "@/app/actions/user-base-assignment";
 
 export default async function BascontrolPage() {
     const session = await getServerSession(authOptions);
@@ -14,6 +15,8 @@ export default async function BascontrolPage() {
     const userEmail = user.email || '';
     const userName = user.name || userEmail;
 
+    const userBases = role === 'ADMIN' ? ['RYDERS', 'ESPECIAL', 'LINDA'] as const : await getUserBases(userName);
+
     return (
         <BascontrolContainer
             userEmail={userEmail}
@@ -21,6 +24,7 @@ export default async function BascontrolPage() {
             userRole={role || 'STANDAR'}
             userCargo={user.cargo}
             userSupervisor={user.supervisor}
+            userBases={[...userBases]}
         />
     );
 }

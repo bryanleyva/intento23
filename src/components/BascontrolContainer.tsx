@@ -5,7 +5,9 @@ import LeadManager from "@/components/LeadManager";
 import AdminTracking from "@/components/AdminTracking";
 import AssignmentPanel from "@/components/AssignmentPanel";
 import SupervisorAssignmentPanel from "@/components/SupervisorAssignmentPanel";
+import BaseAssignmentPanel from "@/components/BaseAssignmentPanel";
 import { AppSwal } from '@/lib/sweetalert';
+import type { BaseType } from '@/app/actions/user-base-assignment';
 
 interface Props {
     userEmail: string;
@@ -13,14 +15,18 @@ interface Props {
     userRole: string;
     userCargo?: string;
     userSupervisor?: string;
+    userBases?: BaseType[];
 }
 
-export default function BascontrolContainer({ userEmail, userName, userRole, userCargo, userSupervisor }: Props) {
-    const [viewMode, setViewMode] = useState<'manage' | 'track' | 'assign'>(userRole === 'ADMIN' ? 'track' : 'manage');
+const ALL_BASES: BaseType[] = ['RYDERS', 'ESPECIAL', 'LINDA'];
+
+export default function BascontrolContainer({ userEmail, userName, userRole, userCargo, userSupervisor, userBases }: Props) {
+    const allowedBases: BaseType[] = (userBases && userBases.length > 0) ? userBases : ALL_BASES;
+    const [viewMode, setViewMode] = useState<'manage' | 'track' | 'assign' | 'bases'>(userRole === 'ADMIN' ? 'track' : 'manage');
     const [selectedBase, setSelectedBase] = useState<'RYDERS' | 'ESPECIAL' | 'LINDA' | null>(null);
 
-    const handleViewChange = async (newMode: 'manage' | 'track' | 'assign') => {
-        if (newMode === 'manage' && userRole === 'ADMIN') {
+    const handleViewChange = async (newMode: 'manage' | 'track' | 'assign' | 'bases') => {
+        if (newMode === 'manage' && (userRole === 'ADMIN' || userRole === 'SPECIAL')) {
             const result = await AppSwal.fire({
                 title: '⚠️ ACCESO RESTRINGIDO',
                 text: 'En la sección de GESTIONAR se solicita carga de base de datos activa. ¿Deseas continuar?',
@@ -44,13 +50,15 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
 
     const headerTitle = viewMode === 'assign'
         ? 'Panel de Asignación'
-        : selectedBase === 'RYDERS'
-            ? 'Gestión: Base Ryders'
-            : selectedBase === 'ESPECIAL'
-                ? 'Gestión: Base Especial'
-                : selectedBase === 'LINDA'
-                    ? 'Gestión: Base Linda'
-                    : 'Centro de Leads';
+        : viewMode === 'bases'
+            ? 'Asignación de Bases'
+            : selectedBase === 'RYDERS'
+                ? 'Gestión: Base Ryders'
+                : selectedBase === 'ESPECIAL'
+                    ? 'Gestión: Base Especial'
+                    : selectedBase === 'LINDA'
+                        ? 'Gestión: Base Linda'
+                        : 'Centro de Leads';
 
     return (
         <div className="w-full py-2 animate-in fade-in duration-500" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -148,6 +156,15 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                             >
                                 SEGUIMIENTO
                             </button>
+                            {userRole === 'ADMIN' && (
+                                <button
+                                    onClick={() => handleViewChange('bases')}
+                                    className={`btn-toggle ${viewMode === 'bases' ? 'active-track' : 'inactive'}`}
+                                    style={{ borderRadius: '12px' }}
+                                >
+                                    BASES
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -155,7 +172,9 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
 
             {/* MAIN CONTENT AREA */}
             <div className="w-full">
-                {viewMode === 'manage' ? (
+                {viewMode === 'bases' ? (
+                    <BaseAssignmentPanel />
+                ) : viewMode === 'manage' ? (
                     selectedBase === 'RYDERS' || selectedBase === 'ESPECIAL' || selectedBase === 'LINDA' ? (
                         <LeadManager
                             userEmail={userEmail}
@@ -183,7 +202,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
 
                             <div className="flex flex-wrap justify-center gap-10">
                                 {/* Card 1: BASE RYDERS */}
-                                <div
+                                {allowedBases.includes('RYDERS') && <div
                                     onClick={() => handleBaseSelection('RYDERS')}
                                     style={{
                                         cursor: 'pointer',
@@ -250,10 +269,10 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%)',
                                         filter: 'blur(10px)'
                                     }} />
-                                </div>
+                                </div>}
 
                                 {/* Card 2: BASE ESPECIAL */}
-                                <div
+                                {allowedBases.includes('ESPECIAL') && <div
                                     onClick={() => handleBaseSelection('ESPECIAL')}
                                     style={{
                                         cursor: 'pointer',
@@ -320,10 +339,10 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
                                         filter: 'blur(10px)'
                                     }} />
-                                </div>
+                                </div>}
 
                                 {/* Card 3: BASE LINDA */}
-                                <div
+                                {allowedBases.includes('LINDA') && <div
                                     onClick={() => handleBaseSelection('LINDA')}
                                     style={{
                                         cursor: 'pointer',
@@ -390,7 +409,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                         background: 'radial-gradient(circle, rgba(249, 115, 22, 0.2) 0%, transparent 70%)',
                                         filter: 'blur(10px)'
                                     }} />
-                                </div>
+                                </div>}
                             </div>
                         </div>
                     )
