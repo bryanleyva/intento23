@@ -6,6 +6,7 @@ import { PostVentaRecord } from '@/app/actions/postventa';
 import { PostVentaObservacion, savePostVentaObservacion, getPostVentaHistorial, updatePostVentaObservacion } from '@/app/actions/postventa-actions';
 import { uploadFileToDrive } from '@/app/actions/drive';
 import { AppSwal } from '@/lib/sweetalert';
+import { getPostVentaReporteData } from '@/app/actions/postventa-reporte';
 
 interface Props {
     cuentas: PostVentaRecord[];
@@ -112,6 +113,13 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const [editObs, setEditObs] = useState('');
     const [editSaving, setEditSaving] = useState(false);
     const [isPending, startTransition] = useTransition();
+
+    // Reporte modal
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const [showReporte, setShowReporte] = useState(false);
+    const [reporteMonth, setReporteMonth] = useState(now.getMonth() + 1);
+    const [reporteYear, setReporteYear] = useState(now.getFullYear());
+    const [reporteLoading, setReporteLoading] = useState(false);
 
     const cuenta = filteredCuentas[idx] ?? null;
     const total = filteredCuentas.length;
@@ -255,6 +263,68 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                 AppSwal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'No se pudo guardar', confirmButtonColor: '#ef4444' });
             }
         });
+    };
+
+    const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    const handleDownloadReporte = async (all: boolean) => {
+        setReporteLoading(true);
+        const res = all
+            ? await getPostVentaReporteData()
+            : await getPostVentaReporteData(reporteMonth, reporteYear);
+        setReporteLoading(false);
+
+        if (!res.success || !res.data) {
+            AppSwal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Error al generar el reporte', confirmButtonColor: '#ef4444' });
+            return;
+        }
+
+        const rows = res.data.map(r => ({
+            'ID': r.id,
+            'RUC': r.ruc,
+            'Razón Social': r.razonSocial,
+            'Ejecutivo': r.ejecutivo,
+            'Supervisor': r.supervisor,
+            'Segmento': r.segmento,
+            'Líneas': r.lineas,
+            'CF Total': r.cargoFijo,
+            'Descuento': r.descuento,
+            'Contacto': r.contacto,
+            'Teléfono': r.telefono,
+            'Correo': r.correo,
+            'Departamento': r.departamento,
+            'Provincia': r.provincia,
+            'Distrito': r.distrito,
+            'Dirección': r.direccion,
+            'DNI/RUC Rep.': r.dni,
+            'Proceso': r.proceso,
+            'Detalle': r.detalle,
+            'Fecha Activación': r.fechaActivacion,
+            'Fecha Periodo': r.fechaPeriodo,
+            'Fecha Inicio': r.fechaInicio,
+            'Fecha Fin': r.fechaFin,
+            'SR Ingreso': r.srIngreso,
+            'Nro. Orden': r.numOrden,
+            'Operador': r.operador,
+            'Estado': r.estado,
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 30 }, { wch: 30 },
+            { wch: 14 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 30 },
+            { wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+            { wch: 40 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+            { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 14 },
+            { wch: 16 }, { wch: 14 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Cuentas Activas');
+        const fileName = all
+            ? `reporte-cuentas-activas-general.xlsx`
+            : `reporte-cuentas-${MONTH_NAMES[reporteMonth - 1]}-${reporteYear}.xlsx`.toLowerCase();
+        XLSX.writeFile(wb, fileName);
+        setShowReporte(false);
     };
 
     const handleExportExcel = () => {
@@ -454,15 +524,37 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             `}</style>
 
             {/* TABS */}
-            <div className="pv-tabs">
-                {!isJefeBO && (
-                    <button className={`pv-tab ${vista === 'gestion' ? 'active' : ''}`} onClick={() => setVista('gestion')}>
-                        📞 Gestión
+            <div className="pv-tabs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    {!isJefeBO && (
+                        <button className={`pv-tab ${vista === 'gestion' ? 'active' : ''}`} onClick={() => setVista('gestion')}>
+                            📞 Gestión
+                        </button>
+                    )}
+                    <button className={`pv-tab ${vista === 'historial' ? 'active' : ''}`} onClick={() => setVista('historial')}>
+                        {isJefeBO ? '📋 Todos los registros' : '📋 Mis registros'}
+                    </button>
+                </div>
+                {(userRole === 'ADMIN' || userRole === 'JEFE_BO') && (
+                    <button
+                        onClick={() => setShowReporte(true)}
+                        style={{
+                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                            border: 'none',
+                            borderRadius: '0.75rem',
+                            color: '#fff',
+                            padding: '7px 16px',
+                            fontSize: '0.72rem',
+                            fontWeight: 900,
+                            cursor: 'pointer',
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            boxShadow: '0 4px 12px rgba(14,165,233,0.3)',
+                        }}
+                    >
+                        📥 Descargar Reporte
                     </button>
                 )}
-                <button className={`pv-tab ${vista === 'historial' ? 'active' : ''}`} onClick={() => setVista('historial')}>
-                    {isJefeBO ? '📋 Todos los registros' : '📋 Mis registros'}
-                </button>
             </div>
 
             {/* ══════════ GESTIÓN ══════════ */}
@@ -862,6 +954,108 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                         </div>
                     )}
                 </>
+            )}
+
+            {/* ══════════ REPORTE MODAL ══════════ */}
+            {showReporte && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem',
+                }}>
+                    <div style={{
+                        background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '2rem', padding: '2.5rem', width: '100%', maxWidth: '440px',
+                        boxShadow: '0 0 80px rgba(14,165,233,0.15)', position: 'relative',
+                    }}>
+                        <button
+                            onClick={() => setShowReporte(false)}
+                            style={{
+                                position: 'absolute', top: '1.25rem', right: '1.25rem',
+                                width: '2rem', height: '2rem', borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem',
+                            }}
+                        >✕</button>
+
+                        <div style={{ fontSize: '0.65rem', fontWeight: 900, color: '#0ea5e9', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+                            Reporte de Cuentas Activas
+                        </div>
+                        <h2 style={{ color: 'white', fontWeight: 950, fontSize: '1.6rem', margin: '0 0 2rem', letterSpacing: '-0.02em' }}>
+                            Descargar Excel
+                        </h2>
+
+                        {/* Month filter */}
+                        <div style={{ marginBottom: '2rem' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 900, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.75rem' }}>
+                                Filtrar por mes
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <select
+                                    value={reporteMonth}
+                                    onChange={e => setReporteMonth(Number(e.target.value))}
+                                    style={{
+                                        flex: 1, background: 'rgba(24,24,27,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '0.875rem', color: 'white', padding: '0.65rem 1rem',
+                                        fontSize: '0.85rem', fontWeight: 700, outline: 'none',
+                                    }}
+                                >
+                                    {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                                </select>
+                                <select
+                                    value={reporteYear}
+                                    onChange={e => setReporteYear(Number(e.target.value))}
+                                    style={{
+                                        width: '110px', background: 'rgba(24,24,27,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '0.875rem', color: 'white', padding: '0.65rem 1rem',
+                                        fontSize: '0.85rem', fontWeight: 700, outline: 'none',
+                                    }}
+                                >
+                                    {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <button
+                                onClick={() => handleDownloadReporte(false)}
+                                disabled={reporteLoading}
+                                style={{
+                                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                                    border: 'none', borderRadius: '1rem', color: 'white',
+                                    padding: '1rem', fontWeight: 900, fontSize: '0.85rem',
+                                    cursor: reporteLoading ? 'not-allowed' : 'pointer',
+                                    opacity: reporteLoading ? 0.6 : 1,
+                                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                                    boxShadow: '0 8px 20px rgba(14,165,233,0.25)',
+                                }}
+                            >
+                                {reporteLoading ? 'Generando...' : `⬇ Descargar ${MONTH_NAMES[reporteMonth - 1]} ${reporteYear}`}
+                            </button>
+                            <button
+                                onClick={() => handleDownloadReporte(true)}
+                                disabled={reporteLoading}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '1rem', color: '#94a3b8',
+                                    padding: '1rem', fontWeight: 900, fontSize: '0.85rem',
+                                    cursor: reporteLoading ? 'not-allowed' : 'pointer',
+                                    opacity: reporteLoading ? 0.6 : 1,
+                                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                                }}
+                            >
+                                {reporteLoading ? 'Generando...' : '⬇ Reporte General (todo)'}
+                            </button>
+                        </div>
+
+                        <div style={{ marginTop: '1.25rem', fontSize: '0.68rem', color: '#334155', fontWeight: 600, lineHeight: 1.5 }}>
+                            Incluye: RUC, Razón Social, Ejecutivo, Supervisor, Segmento, Líneas, CF Total, Fechas, Proceso y más.
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
