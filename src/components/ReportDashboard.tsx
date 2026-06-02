@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
 import LineProgressDashboard from "@/components/LineProgressDashboard";
 import ExecutivePerformanceChart from "@/components/ExecutivePerformanceChart";
 import PerformanceDetailsModal from "@/components/PerformanceDetailsModal";
@@ -81,6 +82,65 @@ export default function ReportDashboard({ rankingData, supRankingData, rawVentas
 
     const role = userRole?.trim().toUpperCase();
     const isAllowedSupervisorRanking = role === 'ADMIN' || role === 'SPECIAL';
+
+    const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    const handleDownloadActivadas = () => {
+        const activadas = rawVentas.filter(v => {
+            const estado = (v.estado || '').trim().toUpperCase();
+            const ruc = String(v.ruc || '').trim();
+            return estado === 'ACTIVADO' && ruc.startsWith('20');
+        });
+
+        if (activadas.length === 0) {
+            alert('No hay cuentas RUC 20 activadas en este mes.');
+            return;
+        }
+
+        const rows = activadas.map(v => ({
+            'ID': v.id ?? '',
+            'RUC': v.ruc ?? '',
+            'Razón Social': v.razonSocial ?? '',
+            'Ejecutivo': v.ejecutivo ?? '',
+            'Supervisor': v.supervisor ?? '',
+            'Segmento': v.segmento ?? '',
+            'Líneas': v.lineas ?? '',
+            'CF Total': v.cargoFijo ?? '',
+            'Descuento': v.descuento ?? '',
+            'Contacto': v.contacto ?? '',
+            'Teléfono': v.telefono ?? '',
+            'Correo': v.correo ?? '',
+            'Departamento': v.departamento ?? '',
+            'Provincia': v.provincia ?? '',
+            'Distrito': v.distrito ?? '',
+            'Dirección': v.direccion ?? '',
+            'DNI/Doc': v.dni ?? '',
+            'Proceso': v.proceso ?? '',
+            'Detalle': v.detalle ?? '',
+            'Fecha Activación': v.fechaActivacion ?? '',
+            'Fecha Periodo': v.fechaPeriodo ?? '',
+            'Fecha Inicio': v.fechaInicio ?? '',
+            'Fecha Fin': v.fechaFin ?? '',
+            'SR Ingreso': v.srIngreso ?? '',
+            'Nro. Orden': v.numOrden ?? '',
+            'Operador': v.operador ?? '',
+            'Estado': v.estado ?? '',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 30 }, { wch: 30 },
+            { wch: 14 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 30 },
+            { wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+            { wch: 40 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+            { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 14 },
+            { wch: 16 }, { wch: 14 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Activadas RUC20');
+        const mesLabel = MONTH_NAMES[selectedMonth - 1] ?? selectedMonth;
+        XLSX.writeFile(wb, `activadas-ruc20-${mesLabel}-${selectedYear}.xlsx`.toLowerCase());
+    };
 
     const handleFilterChange = (field: 'mes' | 'anio', value: string) => {
         const params = new URLSearchParams(window.location.search);
@@ -655,17 +715,38 @@ export default function ReportDashboard({ rankingData, supRankingData, rawVentas
                             }}>
                                 Listado Detallado - {monthLabel} {selectedYear}
                             </h3>
-                            <span style={{
-                                color: '#10b981',
-                                fontWeight: 800,
-                                fontSize: '1rem',
-                                background: 'rgba(16, 185, 129, 0.1)',
-                                padding: '0.5rem 1.5rem',
-                                borderRadius: '2rem',
-                                border: '1px solid rgba(16, 185, 129, 0.2)'
-                            }}>
-                                {rawVentas.length} Registros
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{
+                                    color: '#10b981',
+                                    fontWeight: 800,
+                                    fontSize: '1rem',
+                                    background: 'rgba(16, 185, 129, 0.1)',
+                                    padding: '0.5rem 1.5rem',
+                                    borderRadius: '2rem',
+                                    border: '1px solid rgba(16, 185, 129, 0.2)'
+                                }}>
+                                    {rawVentas.length} Registros
+                                </span>
+                                <button
+                                    onClick={handleDownloadActivadas}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                                        border: 'none',
+                                        borderRadius: '2rem',
+                                        color: '#fff',
+                                        padding: '0.5rem 1.5rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 900,
+                                        cursor: 'pointer',
+                                        letterSpacing: '0.06em',
+                                        textTransform: 'uppercase',
+                                        boxShadow: '0 4px 14px rgba(14,165,233,0.3)',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    ⬇ Activadas RUC 20
+                                </button>
+                            </div>
                         </div>
 
                         <div style={{ overflowX: 'auto' }}>
