@@ -187,6 +187,18 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
     // Form Data converting
     // ... (rest of formData definitions)
 
+    const retryWithBackoff = async <T,>(fn: () => Promise<T>, retries = 2, delayMs = 1500): Promise<T> => {
+        try {
+            return await fn();
+        } catch (e: any) {
+            if (retries > 0 && (e.message === 'Failed to fetch' || e.name === 'TypeError')) {
+                await new Promise(r => setTimeout(r, delayMs));
+                return retryWithBackoff(fn, retries - 1, delayMs * 1.5);
+            }
+            throw e;
+        }
+    };
+
     const handleSubirVenta = async () => {
         // Enforce all fields are mandatory
         const fieldLabels: Record<string, string> = {
@@ -249,7 +261,7 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
                     const uploadData = new FormData();
                     uploadData.append('file', file);
 
-                    const uploadRes = await uploadFileToDrive(uploadData);
+                    const uploadRes = await retryWithBackoff(() => uploadFileToDrive(uploadData));
                     if (!uploadRes.success || !uploadRes.fileId) {
                         throw new Error(uploadRes.error || `Error al subir el archivo: ${file.name}`);
                     }
@@ -268,17 +280,17 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
             let res;
             if (editSaleData) {
                 // IMPORTANT: In correction mode, we call updateVentaFull
-                res = await updateVentaFull(editSaleData.id, {
+                res = await retryWithBackoff(() => updateVentaFull(editSaleData.id, {
                     ...formData,
                     idSustentos: finalSustentos
-                });
+                }));
             } else {
-                res = await saveVenta({
+                res = await retryWithBackoff(() => saveVenta({
                     ...formData,
                     idSustentos: finalSustentos,
                     ejecutivo: ejecutivo,
                     pipelineId: leadData?.id || leadData?.ID
-                });
+                }));
             }
 
             if (res.success) {
@@ -295,7 +307,15 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
             }
         } catch (e: any) {
             console.error("Error submitting sale", e);
-            AppSwal.fire({ title: 'Error', text: e.message || 'Error interno al procesar la venta.', icon: 'error', confirmButtonColor: '#ef4444' });
+            const isNetworkError = e.message === 'Failed to fetch' || e.name === 'TypeError';
+            AppSwal.fire({
+                title: 'Error',
+                text: isNetworkError
+                    ? 'Error de conexión: no se pudo comunicar con el servidor. Verifica tu internet e intenta nuevamente.'
+                    : (e.message || 'Error interno al procesar la venta.'),
+                icon: 'error',
+                confirmButtonColor: '#ef4444'
+            });
         } finally {
             setLoading(false);
             setUploadProgress(0);
