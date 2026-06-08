@@ -2,14 +2,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getPostVentaData } from "@/app/actions/postventa";
+import { getPostVentaRuc10Data } from "@/app/actions/postventa-ruc10";
 import { getPostVentaHistorial, getAllPostVentaHistorial } from "@/app/actions/postventa-actions";
-import PostVentaGestion from "@/components/PostVentaGestion";
+import PostVentaTabs from "@/components/PostVentaTabs";
 
 function isPostVentaAuthorized(role: string, cargo: string): boolean {
     if (role === 'ADMIN') return true;
     if (role === 'ANDREA') return true;
     if (role === 'JEFE_BO') return true;
     return (cargo || '').trim().toUpperCase().includes('POSTVENTA');
+}
+
+// Only ANDREA and ADMIN can manage/see the RUC10 tab
+function canAccessRuc10(role: string): boolean {
+    return role === 'ANDREA' || role === 'ADMIN' || role === 'JEFE_BO';
 }
 
 function getDateRangeLabel(): string {
@@ -50,11 +56,13 @@ export default async function PostVentaPage() {
 
     const rangeLabel = getDateRangeLabel();
     const isJefeBO = role === 'JEFE_BO';
+    const showRuc10Tab = canAccessRuc10(role);
 
-    // JEFE_BO: only sees the full historial
+    // ── JEFE_BO: solo ve historial de todos ────────────────────────────────
     if (isJefeBO) {
         const allHistResult = await getAllPostVentaHistorial();
         const allHistorial = allHistResult.data ?? [];
+
         return (
             <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -74,36 +82,53 @@ export default async function PostVentaPage() {
                         {allHistorial.length} observaciones · {rangeLabel}
                     </p>
                 </div>
-                <PostVentaGestion
-                    cuentas={[]}
+                <PostVentaTabs
+                    cuentasRuc20={[]}
+                    cuentasRuc10={[]}
                     usuario={userName}
                     rangeLabel={rangeLabel}
                     userRole={role}
                     allHistorial={allHistorial}
+                    showRuc10Tab={showRuc10Tab}
                 />
             </div>
         );
     }
 
-    // Regular users (ANDREA, ADMIN, cargo POSTVENTA) — run both in parallel
-    const [result, histResult] = await Promise.all([
+    // ── Usuarios regulares: gestión + historial ────────────────────────────
+    // Fetch RUC20 always; fetch RUC10 only if user can access it
+    const fetches: [
+        Promise<{ success: boolean; data?: any[]; error?: string }>,
+        Promise<{ success: boolean; data?: any[]; error?: string }>,
+        Promise<{ success: boolean; data?: any[]; error?: string }>,
+    ] = [
         getPostVentaData(),
+        showRuc10Tab ? getPostVentaRuc10Data() : Promise.resolve({ success: true, data: [] }),
         getPostVentaHistorial(userName),
-    ]);
-    const data = result.success ? (result.data ?? []) : [];
+    ];
+
+    const [ruc20Result, ruc10Result, histResult] = await Promise.all(fetches);
+
+    const ruc20Data = ruc20Result.success ? (ruc20Result.data ?? []) : [];
+    const ruc10Data = ruc10Result.success ? (ruc10Result.data ?? []) : [];
     const histList = histResult.data ?? [];
+
+    // Compute initialGuardadas for both RUC types from historial
     // histList is reversed (newest first) — first occurrence per RUC = latest
     const latestEstadoByRuc = new Map<string, string>();
     for (const h of histList) {
         if (!latestEstadoByRuc.has(h.ruc)) latestEstadoByRuc.set(h.ruc, h.estado || '');
     }
-    // Only SATISFECHO and ESCALADO count as "done" (INSATISFECHO stays in queue)
-    const initialGuardadas = data
-        .filter(c => {
-            const est = latestEstadoByRuc.get(c.ruc) || '';
-            return est === 'SATISFECHO' || est === 'ESCALADO';
-        })
-        .map(c => c.ruc);
+
+    const isDone = (ruc: string) => {
+        const est = latestEstadoByRuc.get(ruc) || '';
+        return est === 'SATISFECHO' || est === 'ESCALADO';
+    };
+
+    const initialGuardadasRuc20 = ruc20Data.filter(c => isDone(c.ruc)).map(c => c.ruc);
+    const initialGuardadasRuc10 = ruc10Data.filter(c => isDone(c.ruc)).map(c => c.ruc);
+
+    const totalCuentas = ruc20Data.length + ruc10Data.length;
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
@@ -121,26 +146,34 @@ export default async function PostVentaPage() {
                     Gestión de Cuentas Activadas
                 </h1>
                 <p style={{ color: '#475569', fontSize: '0.9rem', margin: 0 }}>
-                    {rangeLabel} · {data.length} cuentas
+                    {rangeLabel} · {totalCuentas} cuentas
+                    {showRuc10Tab && ruc10Data.length > 0 && (
+                        <span style={{ color: '#818cf8', marginLeft: '0.5rem' }}>
+                            ({ruc20Data.length} RUC20 · {ruc10Data.length} RUC10)
+                        </span>
+                    )}
                 </p>
             </div>
 
-            {result.success === false && (
+            {(!ruc20Result.success || !ruc10Result.success) && (
                 <div style={{
                     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
                     borderRadius: '0.75rem', padding: '1rem 1.5rem',
                     color: '#fca5a5', fontSize: '0.85rem', marginBottom: '1.5rem'
                 }}>
-                    ⚠️ {result.error ?? 'Error al cargar los datos.'}
+                    ⚠️ {ruc20Result.error ?? ruc10Result.error ?? 'Error al cargar algunos datos.'}
                 </div>
             )}
 
-            <PostVentaGestion
-                cuentas={data}
+            <PostVentaTabs
+                cuentasRuc20={ruc20Data}
+                cuentasRuc10={ruc10Data}
                 usuario={userName}
                 rangeLabel={rangeLabel}
                 userRole={role}
-                initialGuardadas={initialGuardadas}
+                initialGuardadasRuc20={initialGuardadasRuc20}
+                initialGuardadasRuc10={initialGuardadasRuc10}
+                showRuc10Tab={showRuc10Tab}
             />
         </div>
     );
