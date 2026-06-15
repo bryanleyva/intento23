@@ -12,7 +12,7 @@ export default function SessionGuardian() {
                 // Force logout if session is invalid (another user logged in)
                 await signOut({ redirect: true, callbackUrl: '/login?error=SessionExpired' });
             }
-        }, 30000); // Check every 30 seconds for performance
+        }, 300000); // Check every 5 minutes to stay within Google Sheets API quota
 
         return () => clearInterval(interval);
     }, []);

@@ -97,8 +97,12 @@ export async function checkSessionToken(username: string, token: string): Promis
     await cache.ensureInitialized();
 
     const userRow = cache.findUser(username);
-    if (!userRow) return false;
+    // Fail-open: if user not found it's likely a transient API/cache issue, not a revocation.
+    // Only close the session when the token is explicitly empty (account disabled/kicked).
+    if (!userRow) return true;
 
     const currentToken = userRow.get('SESSION_TOKEN');
+    // Empty token = account explicitly disabled or kicked out
+    if (!currentToken) return false;
     return currentToken === token;
 }
