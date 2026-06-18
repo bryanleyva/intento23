@@ -109,7 +109,7 @@ export default function SupervisorAssignmentPanel() {
                 {([
                     { id: 'RYDERS', label: '🚀 Base Ryders', color: '#34d399', bg: 'rgba(16,185,129,0.15)', ring: 'rgba(16,185,129,0.3)' },
                     { id: 'ESPECIAL', label: '⭐ Base Especial', color: '#a78bfa', bg: 'rgba(139,92,246,0.15)', ring: 'rgba(139,92,246,0.3)' },
-                    { id: 'LINDA', label: '🌸 Base Linda', color: '#fb923c', bg: 'rgba(249,115,22,0.15)', ring: 'rgba(249,115,22,0.3)' },
+                    { id: 'LINDA', label: '🌸 Base Seekon', color: '#fb923c', bg: 'rgba(249,115,22,0.15)', ring: 'rgba(249,115,22,0.3)' },
                 ] as const).map(b => (
                     <button
                         key={b.id}

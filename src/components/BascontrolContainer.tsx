@@ -58,7 +58,7 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                 : selectedBase === 'ESPECIAL'
                     ? 'Gestión: Base Especial'
                     : selectedBase === 'LINDA'
-                        ? 'Gestión: Base Linda'
+                        ? 'Gestión: Base Seekon'
                         : 'Centro de Leads';
 
     return (
@@ -387,9 +387,9 @@ export default function BascontrolContainer({ userEmail, userName, userRole, use
                                     }}>
                                         🌸
                                     </div>
-                                    <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: 'white', marginBottom: '1rem', letterSpacing: '-0.02em' }}>BASE LINDA</h4>
+                                    <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: 'white', marginBottom: '1rem', letterSpacing: '-0.02em' }}>BASE SEEKON</h4>
                                     <p style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: '1.6', maxWidth: '80%' }}>
-                                        Base de datos dedicada para campañas y segmentos exclusivos Linda.
+                                        Base de datos dedicada para campañas y segmentos exclusivos Seekon.
                                     </p>
                                     <div style={{
                                         marginTop: '3.5rem',

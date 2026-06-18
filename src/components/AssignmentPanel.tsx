@@ -139,14 +139,14 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                     onClick={() => setActiveBase('LINDA')}
                     style={{ padding: '8px 20px', borderRadius: '0.75rem', fontSize: '0.78rem', fontWeight: 900, cursor: 'pointer', border: 'none', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s', background: activeBase === 'LINDA' ? 'rgba(249,115,22,0.15)' : 'transparent', color: activeBase === 'LINDA' ? '#fb923c' : '#64748b', boxShadow: activeBase === 'LINDA' ? 'inset 0 0 0 1px rgba(249,115,22,0.3)' : 'none' }}
                 >
-                    🌸 Base Linda
+                    🌸 Base Seekon
                 </button>
             </div>
 
             {/* Header / Summary */}
             <div className="assignmentHeader">
                 <div className="headerLeft">
-                    <h1 className="headerTitle">{activeBase === 'ESPECIAL' ? 'Asignación Base Especial' : activeBase === 'LINDA' ? 'Asignación Base Linda' : 'Control de Asignación'}</h1>
+                    <h1 className="headerTitle">{activeBase === 'ESPECIAL' ? 'Asignación Base Especial' : activeBase === 'LINDA' ? 'Asignación Base Seekon' : 'Control de Asignación'}</h1>
                     <p className="headerSubtitle">
                         <span className="stockIndicator" style={{ background: activeBase === 'ESPECIAL' ? '#8b5cf6' : activeBase === 'LINDA' ? '#f97316' : '#10b981', boxShadow: activeBase === 'ESPECIAL' ? '0 0 10px #8b5cf6' : activeBase === 'LINDA' ? '0 0 10px #f97316' : '0 0 10px #10b981' }}></span>
                         {totalAvailable} cuentas disponibles en Stock
