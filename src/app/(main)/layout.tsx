@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import SessionGuardian from "@/components/SessionGuardian";
 import WhatsAppSupport from "@/components/WhatsAppSupport";
+import AnnouncementModal from "@/components/AnnouncementModal";
 
 export default async function MainLayout({
     children,
@@ -34,6 +35,7 @@ export default async function MainLayout({
                 </div>
             </main>
             <WhatsAppSupport />
+            <AnnouncementModal />
         </div>
     );
 }
