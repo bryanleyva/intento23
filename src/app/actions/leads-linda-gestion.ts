@@ -234,6 +234,12 @@ export async function getLindaAssignmentStats(userRole?: string, userName?: stri
         await userCache.ensureInitialized();
 
         const allRows = cache.getAll();
+        const allUsers = userCache.getAll();
+
+        // If user cache returned nothing, it's almost certainly an API/quota error
+        if (allUsers.length === 0) {
+            return { success: false, error: 'No se pudo cargar la lista de ejecutivos. El servicio puede estar ocupado, intenta en unos segundos.' };
+        }
 
         let execs;
         if (userRole === 'SPECIAL' && userName) {
@@ -242,7 +248,7 @@ export async function getLindaAssignmentStats(userRole?: string, userName?: stri
                 return role === 'STANDAR' || role === 'SPECIAL';
             });
         } else {
-            execs = userCache.getAll().filter((u: any) => {
+            execs = allUsers.filter((u: any) => {
                 const role = (u.get('ROL') || '').trim().toUpperCase();
                 return role === 'STANDAR' || role === 'SPECIAL';
             });

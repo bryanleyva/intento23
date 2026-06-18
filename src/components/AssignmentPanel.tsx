@@ -16,6 +16,7 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
     const [stats, setStats] = useState<any[]>([]);
     const [stock, setStock] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [selectedExec, setSelectedExec] = useState<any>(null);
 
@@ -30,6 +31,7 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
 
     const loadData = async () => {
         setLoading(true);
+        setLoadError(null);
         const res = activeBase === 'ESPECIAL'
             ? await getSpecialAssignmentStats(userRole, userName)
             : activeBase === 'LINDA'
@@ -38,6 +40,10 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
         if (res.success) {
             setStats(res.stats || []);
             setStock(res.stock || {});
+        } else {
+            setLoadError((res as any).error || 'Error al cargar datos de asignación. Intente nuevamente.');
+            setStats([]);
+            setStock({});
         }
         setLoading(false);
     };
@@ -163,6 +169,16 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                 </div>
             </div>
 
+            {/* Error / Empty States */}
+            {loadError && (
+                <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '1rem', padding: '1.25rem 1.5rem', color: '#fca5a5', fontSize: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                    <span>⚠️ {loadError}</span>
+                    <button onClick={loadData} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '0.5rem', color: '#fca5a5', padding: '0.4rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Reintentar
+                    </button>
+                </div>
+            )}
+
             {/* Executive Grid */}
             <div className="executiveGrid">
                 {stats.map((exec) => (
@@ -192,6 +208,11 @@ export default function AssignmentPanel({ userRole, userName }: AssignmentPanelP
                         </div>
                     </div>
                 ))}
+                {!loadError && stats.length === 0 && (
+                    <p style={{ color: '#71717a', gridColumn: '1/-1', textAlign: 'center', padding: '3rem', fontSize: '0.875rem' }}>
+                        No hay ejecutivos registrados con acceso a esta base.
+                    </p>
+                )}
             </div>
 
             {/* Modal - Selective Assignment */}

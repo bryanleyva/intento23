@@ -1540,6 +1540,11 @@ export async function getExecutiveAssignmentStats(userRole?: string, userName?: 
         await userCache.ensureInitialized();
 
         const allLeads = leadCache.getAll();
+        const allUsers = userCache.getAll();
+
+        if (allUsers.length === 0) {
+            return { success: false, error: 'No se pudo cargar la lista de ejecutivos. El servicio puede estar ocupado, intenta en unos segundos.' };
+        }
 
         let execs;
         if (userRole === 'SPECIAL' && userName) {
@@ -1550,7 +1555,7 @@ export async function getExecutiveAssignmentStats(userRole?: string, userName?: 
             });
         } else {
             // ADMIN or unidentified sees everyone
-            execs = userCache.getAll().filter((u: any) => {
+            execs = allUsers.filter((u: any) => {
                 const role = (u.get('ROL') || '').trim().toUpperCase();
                 return role === 'STANDAR' || role === 'SPECIAL';
             });
