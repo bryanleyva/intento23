@@ -66,7 +66,7 @@ export async function exportVentasToExcel(filteredVentas: any[], selectedMonth: 
         const url = window.URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `Ventas_Lishing_${selectedMonth}_${selectedYear}.xlsx`;
+        anchor.download = `Ventas_Viernes_${selectedMonth}_${selectedYear}.xlsx`;
         anchor.click();
         window.URL.revokeObjectURL(url);
     } catch (error) {

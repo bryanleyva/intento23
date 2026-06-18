@@ -283,7 +283,7 @@ export default function ProspectPipelineBoard({ leads: initialLeads, userRole, u
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `Deals_Lishing_Advanced_${new Date().toISOString().split('T')[0]}.xlsx`);
+        link.setAttribute("download", `Deals_Viernes_Advanced_${new Date().toISOString().split('T')[0]}.xlsx`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

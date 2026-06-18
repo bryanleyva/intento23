@@ -4,7 +4,7 @@ import React from 'react';
 
 const WhatsAppSupport = () => {
     const phoneNumber = '51903138521';
-    const message = 'Hola, tengo una consulta sobre el sistema Lishing.';
+    const message = 'Hola, tengo una consulta sobre el sistema Viernes.';
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
     return (
