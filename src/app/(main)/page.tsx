@@ -112,7 +112,87 @@ export default function InicioPage() {
                         </p>
                     </div>
 
-                   
+                    {/* PDF Resource Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', width: '100%' }}>
+                        {[
+                            {
+                                title: 'Presentación de Incentivos 2026',
+                                summary: 'Conoce todos los bonos, premios y esquemas de incentivos vigentes para este año.',
+                                file: '/PRESENTACION DE INCENTIVOS - 2026.pdf',
+                                color: '#10b981',
+                            },
+                            {
+                                title: 'Camino Corporativo Rayders 2026',
+                                summary: 'Hoja de ruta y objetivos estratégicos de Rayders para el presente año.',
+                                file: '/Rayders - Camino corp 2026.pdf',
+                                color: '#6366f1',
+                            },
+                            {
+                                title: 'Tu Desarrollo en Rayders 2026',
+                                summary: 'Plan de crecimiento profesional, línea de carrera y oportunidades de desarrollo.',
+                                file: '/TU DESARROLLO EN RAYDERS - 2026.pdf',
+                                color: '#f59e0b',
+                            },
+                        ].map((doc) => (
+                            <a
+                                key={doc.file}
+                                href={doc.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.75rem',
+                                    padding: '1.5rem',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: `1px solid ${doc.color}33`,
+                                    borderRadius: '1rem',
+                                    textDecoration: 'none',
+                                    transition: 'background 0.2s, border-color 0.2s, transform 0.2s',
+                                    cursor: 'pointer',
+                                }}
+                                onMouseEnter={e => {
+                                    (e.currentTarget as HTMLElement).style.background = `${doc.color}11`;
+                                    (e.currentTarget as HTMLElement).style.borderColor = `${doc.color}66`;
+                                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                                }}
+                                onMouseLeave={e => {
+                                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)';
+                                    (e.currentTarget as HTMLElement).style.borderColor = `${doc.color}33`;
+                                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                                }}
+                            >
+                                {/* Icon */}
+                                <div style={{
+                                    width: '40px', height: '40px', borderRadius: '0.6rem',
+                                    background: `${doc.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={doc.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <line x1="16" y1="13" x2="8" y2="13" />
+                                        <line x1="16" y1="17" x2="8" y2="17" />
+                                        <polyline points="10 9 9 9 8 9" />
+                                    </svg>
+                                </div>
+                                {/* Title */}
+                                <p style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem', margin: 0, lineHeight: 1.3 }}>
+                                    {doc.title}
+                                </p>
+                                {/* Summary */}
+                                <p style={{ color: '#9ca3af', fontSize: '0.8rem', margin: 0, lineHeight: 1.5, flexGrow: 1 }}>
+                                    {doc.summary}
+                                </p>
+                                {/* CTA */}
+                                <span style={{ color: doc.color, fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    Ver documento
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={doc.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" />
+                                    </svg>
+                                </span>
+                            </a>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
