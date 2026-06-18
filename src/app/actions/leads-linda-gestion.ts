@@ -115,8 +115,8 @@ export async function saveLindaLead(rowIndex: number, data: any) {
 export async function getLindaAgendamientos(userName: string, userRole: string) {
     try {
         await loadDoc();
-        const sheet = doc.sheetsByTitle['BASE LINDA'];
-        if (!sheet) return { error: 'Hoja BASE LINDA no encontrada' };
+        const sheet = doc.sheetsByTitle['BASE SEEKON'];
+        if (!sheet) return { error: 'Hoja BASE SEEKON no encontrada' };
 
         const rows = await sheet.getRows();
         const scheduledRows = rows.filter(row => {
@@ -163,8 +163,8 @@ export async function getLindaLeadByRuc(ruc: string) {
 export async function createManualLindaLead(data: any, user: string) {
     try {
         await loadDoc();
-        const sheet = doc.sheetsByTitle['BASE LINDA'];
-        if (!sheet) return { success: false, error: 'Hoja BASE LINDA no encontrada.' };
+        const sheet = doc.sheetsByTitle['BASE SEEKON'];
+        if (!sheet) return { success: false, error: 'Hoja BASE SEEKON no encontrada.' };
 
         const rows = await sheet.getRows();
         const normalizedRuc = String(data.ruc).trim();

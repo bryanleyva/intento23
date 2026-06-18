@@ -38,9 +38,9 @@ export class LeadCacheLinda {
     private async _refresh() {
         try {
             await loadDoc();
-            const sheet = doc.sheetsByTitle['BASE LINDA'];
+            const sheet = doc.sheetsByTitle['BASE SEEKON'];
             if (!sheet) {
-                console.error('LeadCacheLinda: Sheet BASE LINDA not found');
+                console.error('LeadCacheLinda: Sheet BASE SEEKON not found');
                 return;
             }
             await sheet.loadHeaderRow();
@@ -137,7 +137,7 @@ export class LeadCacheLinda {
 
     private async ensureSupervisorColumnInternal() {
         await loadDoc();
-        const sheet = doc.sheetsByTitle['BASE LINDA'];
+        const sheet = doc.sheetsByTitle['BASE SEEKON'];
         if (!sheet) return;
         await sheet.loadHeaderRow();
         if (!sheet.headerValues.includes('SUPERVISOR')) {
