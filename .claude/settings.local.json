@@ -16,7 +16,15 @@
       "PowerShell(cd \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\"; $out = npx tsc --noEmit 2>&1; $filtered = $out | Where-Object { $_ -notmatch \"actions\\\\.ts\\\\\\(\" }; Write-Host \\($filtered | Out-String\\))",
       "PowerShell(Remove-Item -Recurse -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\.next\" -Confirm:$false -ErrorAction SilentlyContinue)",
       "PowerShell(cd \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\"; $out = npx tsc --noEmit 2>&1; $filtered = $out | Where-Object { $_ -notmatch \"actions\\\\.ts\\\\\\(\" }; if \\($filtered\\) { Write-Host \\($filtered | Out-String\\) } else { Write-Host \"Sin errores nuevos\" })",
-      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\actions\\\\leads-special.ts\" -Confirm:$false)"
+      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\app\\\\actions\\\\leads-special.ts\" -Confirm:$false)",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\PC\\\\Desktop\\\\friday-saas\"; $env:TS_NODE_COMPILER_OPTIONS = '{\"module\":\"CommonJS\"}'; npx ts-node prisma/seed.ts 2>&1)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\" -Recurse -Directory | Select-Object -First 50 | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\\", \"\"\\) })",
+      "Bash(npx next *)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\components\\\\\" | Select-Object Name)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=si npx prisma migrate dev --name add_lead_gestion_fields)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

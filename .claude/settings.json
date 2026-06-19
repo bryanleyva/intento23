@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(psql --version)",
+      "Bash(npm --version)",
+      "Bash(npx create-next-app@latest friday-saas --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --no-turbopack)",
+      "Bash(ls /mnt/c/Users/PC/Desktop/ 2>/dev/null || echo \"checking path\")",
+      "Read(//mnt/c/Users/PC/**)",
+      "PowerShell(docker context ls 2>&1)",
+      "PowerShell(docker context use default)",
+      "PowerShell(docker compose -f \"C:\\\\Users\\\\PC\\\\Desktop\\\\friday-saas\\\\docker-compose.yml\" up -d 2>&1)",
+      "PowerShell(docker context use desktop-linux 2>&1)",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\PC\\\\Desktop\\\\friday-saas\"; $env:PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION = \"si\"; npx prisma migrate reset --force 2>&1)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\PC\\Desktop\\friday-saas"
+    ]
+  }
+}

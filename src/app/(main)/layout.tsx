@@ -5,6 +5,11 @@ import Navbar from "@/components/Navbar";
 import SessionGuardian from "@/components/SessionGuardian";
 import WhatsAppSupport from "@/components/WhatsAppSupport";
 import AnnouncementModal from "@/components/AnnouncementModal";
+import EvaluationFormModal from "@/components/EvaluationFormModal";
+
+// Roles que ven el Formulario de Evaluación (ejecutivos y vendedores).
+// Se excluye a administración / mesa de control.
+const EVALUATION_EXCLUDED_ROLES = ['ADMIN', 'BACKOFFICE', 'JEFE_BO'];
 
 export default async function MainLayout({
     children,
@@ -18,6 +23,7 @@ export default async function MainLayout({
     }
 
     const user = session.user as any;
+    const showEvaluationForm = !EVALUATION_EXCLUDED_ROLES.includes((user.role || '').toUpperCase());
 
     return (
         <div className="min-h-screen relative z-10 flex flex-col w-full bg-[#050505]">
@@ -36,6 +42,13 @@ export default async function MainLayout({
             </main>
             <WhatsAppSupport />
             <AnnouncementModal />
+            {showEvaluationForm && (
+                <EvaluationFormModal
+                    dni={user.dni ?? user.id ?? ''}
+                    usuario={session.user.email ?? ''}
+                    nombre={session.user.name ?? ''}
+                />
+            )}
         </div>
     );
 }
