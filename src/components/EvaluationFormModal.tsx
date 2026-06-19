@@ -236,14 +236,24 @@ export default function EvaluationFormModal({ dni, usuario, nombre }: Evaluation
                             }} />
                             <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#E7EAF0' }}>{statusLabel}</span>
                         </div>
-                        <button
-                            className="eval-btn"
-                            style={{ background: '#E0382B', color: '#fff' }}
-                            disabled={sending || sent}
-                            onClick={handleSubmit}
-                        >
-                            {sending ? 'Enviando…' : sent ? '✓ Enviado' : 'Enviar a Sheets'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                className="eval-btn"
+                                style={{ background: '#EEF1F6', color: '#16294A' }}
+                                disabled={sending}
+                                onClick={handleClose}
+                            >
+                                Cerrar
+                            </button>
+                            <button
+                                className="eval-btn"
+                                style={{ background: '#E0382B', color: '#fff' }}
+                                disabled={sending || sent}
+                                onClick={handleSubmit}
+                            >
+                                {sending ? 'Enviando…' : sent ? '✓ Enviado' : 'Enviar a Sheets'}
+                            </button>
+                        </div>
                     </div>
 
                     {/* SHEET */}

@@ -2,7 +2,7 @@
 
 import { doc, loadDoc } from '@/lib/google-sheets';
 
-const SHEET_NAME = 'RESPUESTAS_FORMULARIO';
+const SHEET_NAME = 'RESPUESTAS_FORMULARI';
 
 const SHEET_HEADERS = [
     'FECHA_ENVIO',
@@ -126,8 +126,9 @@ export async function submitEvaluationForm(
         });
 
         return { success: true };
-    } catch (e) {
+    } catch (e: any) {
         console.error('submitEvaluationForm error:', e);
-        return { success: false, error: 'No se pudo guardar. Inténtalo de nuevo.' };
+        const detail = e?.message || String(e);
+        return { success: false, error: `Error al guardar: ${detail}` };
     }
 }
