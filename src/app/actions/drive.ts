@@ -23,7 +23,7 @@ export async function uploadFileToDrive(formData: FormData) {
         stream.push(null);
 
         // Check folder access first
-        const folderId = '13UpUfdlB6jr2vECjNuBP89N8IUvauDWN';
+        const folderId = '10Em0ObpHWW06xCevzRzhTy3vAqOOO7bF';
         try {
             const folder = await drive.files.get({
                 fileId: folderId,
@@ -82,7 +82,7 @@ export async function uploadFileToDrive(formData: FormData) {
     }
 }
 
-const DRIVE_FOLDER_ID = '13UpUfdlB6jr2vECjNuBP89N8IUvauDWN';
+const DRIVE_FOLDER_ID = '10Em0ObpHWW06xCevzRzhTy3vAqOOO7bF';
 
 /**
  * Mueve un archivo ya subido a Vercel Blob hacia Google Drive (server-to-server).
