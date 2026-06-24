@@ -254,34 +254,14 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
             let uploadedFileIds: string[] = [];
 
             if (files.length > 0) {
-                const { createDriveUploadSession } = await import('@/app/actions/drive');
+                const { uploadFileToDrive } = await import('@/lib/upload-file');
 
-                // Upload files sequentially for better stability and reliable progress.
-                // Bytes go DIRECTLY from the browser to Google Drive (resumable upload),
-                // so we bypass Vercel's 4.5MB Server Action body limit.
+                // Upload files sequentially for reliable progress. Each file goes
+                // browser -> Vercel Blob -> Google Drive, bypassing Vercel's 4.5MB
+                // Server Action body limit.
                 for (const file of files) {
-                    const session = await retryWithBackoff(() =>
-                        createDriveUploadSession(file.name, file.type)
-                    );
-                    if (!session.success || !session.uploadUrl) {
-                        throw new Error(session.error || `Error al iniciar la subida: ${file.name}`);
-                    }
-
-                    const putRes = await fetch(session.uploadUrl, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                        body: file,
-                    });
-                    if (!putRes.ok) {
-                        throw new Error(`Error al subir el archivo "${file.name}" a Drive (${putRes.status}).`);
-                    }
-
-                    const data = await putRes.json();
-                    if (!data.id) {
-                        throw new Error(`No se obtuvo el ID del archivo: ${file.name}`);
-                    }
-
-                    uploadedFileIds.push(data.id);
+                    const fileId = await uploadFileToDrive(file);
+                    uploadedFileIds.push(fileId);
 
                     // Update progress reliably
                     setUploadProgress(prev => Math.min(prev + (100 / files.length), 100));

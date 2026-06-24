@@ -3,6 +3,7 @@
 import { google } from 'googleapis';
 import { auth } from '@/lib/google-sheets';
 import { Readable } from 'stream';
+import { del } from '@vercel/blob';
 
 export async function uploadFileToDrive(formData: FormData) {
     try {
@@ -83,51 +84,53 @@ export async function uploadFileToDrive(formData: FormData) {
 const DRIVE_FOLDER_ID = '13UpUfdlB6jr2vECjNuBP89N8IUvauDWN';
 
 /**
- * Inicia una sesión de subida "resumable" en Google Drive y devuelve la URL
- * a la que el navegador subirá los bytes directamente. Así el archivo NO pasa
- * por la Server Action, evitando el límite de 4.5 MB de Vercel.
+ * Mueve un archivo ya subido a Vercel Blob hacia Google Drive (server-to-server).
+ * El navegador sube primero el archivo a Blob (sin límite de 4.5 MB ni CORS) y
+ * luego llama a esta acción con la URL del blob. Al terminar, borra el blob.
  */
-export async function createDriveUploadSession(fileName: string, mimeType: string) {
+export async function uploadFromBlobUrl(blobUrl: string, fileName: string, mimeType: string) {
     try {
-        const tokenResponse = await (auth as any).getAccessToken();
-        const accessToken = typeof tokenResponse === 'string' ? tokenResponse : tokenResponse?.token;
-        if (!accessToken) {
-            return { success: false, error: 'No se pudo autenticar con Google.' };
+        const drive = google.drive({ version: 'v3', auth });
+
+        // Descarga el archivo desde Blob (en el servidor, sin límite de tamaño).
+        const resp = await fetch(blobUrl);
+        if (!resp.ok || !resp.body) {
+            return { success: false, error: `No se pudo leer el archivo subido (${resp.status}).` };
+        }
+        const stream = Readable.fromWeb(resp.body as any);
+
+        const response = await drive.files.create({
+            requestBody: {
+                name: fileName,
+                parents: [DRIVE_FOLDER_ID],
+            },
+            media: {
+                mimeType: mimeType || 'application/octet-stream',
+                body: stream,
+            },
+            fields: 'id, webViewLink',
+            supportsAllDrives: true,
+        });
+
+        // Limpia el blob temporal (no bloqueante si falla).
+        try {
+            await del(blobUrl);
+        } catch (e) {
+            console.warn('No se pudo borrar el blob temporal:', e);
         }
 
-        const res = await fetch(
-            'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,webViewLink',
-            {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json; charset=UTF-8',
-                    'X-Upload-Content-Type': mimeType || 'application/octet-stream',
-                },
-                body: JSON.stringify({ name: fileName, parents: [DRIVE_FOLDER_ID] }),
-            }
-        );
-
-        if (!res.ok) {
-            const text = await res.text();
-            console.error('Error iniciando sesión de subida:', res.status, text);
-            if (text.includes('storage quota')) {
-                return {
-                    success: false,
-                    error: 'Error de Cuota: Las cuentas de servicio no tienen espacio propio. SOLUCIÓN: La carpeta de destino debe estar dentro de una "UNIDAD COMPARTIDA" (Shared Drive) de Google Workspace, no en "Mi Unidad" personal.',
-                };
-            }
-            return { success: false, error: `No se pudo iniciar la subida (${res.status}).` };
+        if (response.data.id) {
+            return { success: true, fileId: response.data.id, viewLink: response.data.webViewLink };
         }
-
-        const uploadUrl = res.headers.get('location');
-        if (!uploadUrl) {
-            return { success: false, error: 'Google no devolvió la URL de subida.' };
-        }
-
-        return { success: true, uploadUrl };
+        return { success: false, error: 'No se pudo obtener el ID del archivo.' };
     } catch (error: any) {
-        console.error('Error en createDriveUploadSession:', error);
-        return { success: false, error: error.message || 'Error al iniciar la subida.' };
+        console.error('Error en uploadFromBlobUrl:', error);
+        if (error.message && error.message.includes('storage quota')) {
+            return {
+                success: false,
+                error: 'Error de Cuota: Las cuentas de servicio no tienen espacio propio. SOLUCIÓN: La carpeta de destino debe estar dentro de una "UNIDAD COMPARTIDA" (Shared Drive) de Google Workspace, no en "Mi Unidad" personal.',
+            };
+        }
+        return { success: false, error: error.message || 'Error al mover el archivo a Drive.' };
     }
 }

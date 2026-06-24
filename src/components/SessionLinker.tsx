@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { getVentasData, updateVentaStatus, updateVentaData, getChatMessages, sendChatMessage, appendSustentos } from '@/app/actions/leads';
-import { createDriveUploadSession } from '@/app/actions/drive';
+import { uploadFileToDrive } from '@/lib/upload-file';
 import { AppSwal } from '@/lib/sweetalert';
 import SubirVentaModal from './SubirVentaModal';
 import { exportVentasToExcel } from '@/lib/excel-utils';
@@ -283,19 +283,8 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
             setUploadProgress([...progressLog]);
 
             try {
-                const session = await createDriveUploadSession(file.name, file.type);
-                if (!session.success || !session.uploadUrl) {
-                    throw new Error(session.error ?? 'No se pudo iniciar la subida');
-                }
-                const putRes = await fetch(session.uploadUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                    body: file,
-                });
-                if (!putRes.ok) throw new Error(`Error al subir a Drive (${putRes.status})`);
-                const data = await putRes.json();
-                if (!data.id) throw new Error('No se obtuvo el ID del archivo');
-                newIds.push(data.id);
+                const fileId = await uploadFileToDrive(file);
+                newIds.push(fileId);
                 progressLog[i] = `✓ ${file.name}`;
             } catch (err: any) {
                 progressLog[i] = `✗ ${file.name}: ${err.message ?? 'Error'}`;

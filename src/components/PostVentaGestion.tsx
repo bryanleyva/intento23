@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { PostVentaRecord } from '@/app/actions/postventa';
 import { PostVentaObservacion, savePostVentaObservacion, getPostVentaHistorial, updatePostVentaObservacion } from '@/app/actions/postventa-actions';
-import { createDriveUploadSession } from '@/app/actions/drive';
+import { uploadFileToDrive } from '@/lib/upload-file';
 import { AppSwal } from '@/lib/sweetalert';
 import { getPostVentaReporteData } from '@/app/actions/postventa-reporte';
 
@@ -191,21 +191,8 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         setUploading(true);
         for (const file of Array.from(files)) {
             try {
-                const session = await createDriveUploadSession(file.name, file.type);
-                if (!session.success || !session.uploadUrl) {
-                    throw new Error(session.error ?? 'No se pudo iniciar la subida');
-                }
-                const putRes = await fetch(session.uploadUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                    body: file,
-                });
-                if (!putRes.ok) {
-                    throw new Error(`Error al subir a Drive (${putRes.status})`);
-                }
-                const data = await putRes.json();
-                if (!data.id) throw new Error('No se obtuvo el ID del archivo');
-                setUploadedFiles(prev => [...prev, { id: data.id, name: file.name }]);
+                const fileId = await uploadFileToDrive(file);
+                setUploadedFiles(prev => [...prev, { id: fileId, name: file.name }]);
             } catch (err: any) {
                 AppSwal.fire({ icon: 'error', title: 'Error al subir', text: err.message ?? 'Error desconocido', confirmButtonColor: '#ef4444' });
             }
