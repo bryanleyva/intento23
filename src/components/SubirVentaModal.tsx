@@ -254,19 +254,34 @@ export default function SubirVentaModal({ isOpen, onClose, leadData, ejecutivo, 
             let uploadedFileIds: string[] = [];
 
             if (files.length > 0) {
-                const { uploadFileToDrive } = await import('@/app/actions/drive');
+                const { createDriveUploadSession } = await import('@/app/actions/drive');
 
-                // Upload files sequentially for better stability and reliable progress
+                // Upload files sequentially for better stability and reliable progress.
+                // Bytes go DIRECTLY from the browser to Google Drive (resumable upload),
+                // so we bypass Vercel's 4.5MB Server Action body limit.
                 for (const file of files) {
-                    const uploadData = new FormData();
-                    uploadData.append('file', file);
-
-                    const uploadRes = await retryWithBackoff(() => uploadFileToDrive(uploadData));
-                    if (!uploadRes.success || !uploadRes.fileId) {
-                        throw new Error(uploadRes.error || `Error al subir el archivo: ${file.name}`);
+                    const session = await retryWithBackoff(() =>
+                        createDriveUploadSession(file.name, file.type)
+                    );
+                    if (!session.success || !session.uploadUrl) {
+                        throw new Error(session.error || `Error al iniciar la subida: ${file.name}`);
                     }
 
-                    uploadedFileIds.push(uploadRes.fileId);
+                    const putRes = await fetch(session.uploadUrl, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                        body: file,
+                    });
+                    if (!putRes.ok) {
+                        throw new Error(`Error al subir el archivo "${file.name}" a Drive (${putRes.status}).`);
+                    }
+
+                    const data = await putRes.json();
+                    if (!data.id) {
+                        throw new Error(`No se obtuvo el ID del archivo: ${file.name}`);
+                    }
+
+                    uploadedFileIds.push(data.id);
 
                     // Update progress reliably
                     setUploadProgress(prev => Math.min(prev + (100 / files.length), 100));

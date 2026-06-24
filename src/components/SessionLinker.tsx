@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { getVentasData, updateVentaStatus, updateVentaData, getChatMessages, sendChatMessage, appendSustentos } from '@/app/actions/leads';
-import { uploadFileToDrive } from '@/app/actions/drive';
+import { createDriveUploadSession } from '@/app/actions/drive';
 import { AppSwal } from '@/lib/sweetalert';
 import SubirVentaModal from './SubirVentaModal';
 import { exportVentasToExcel } from '@/lib/excel-utils';
@@ -282,15 +282,23 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
             progressLog.push(`Subiendo ${file.name}...`);
             setUploadProgress([...progressLog]);
 
-            const formData = new FormData();
-            formData.append('file', file);
-            const result = await uploadFileToDrive(formData);
-
-            if (result.success && result.fileId) {
-                newIds.push(result.fileId);
+            try {
+                const session = await createDriveUploadSession(file.name, file.type);
+                if (!session.success || !session.uploadUrl) {
+                    throw new Error(session.error ?? 'No se pudo iniciar la subida');
+                }
+                const putRes = await fetch(session.uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                    body: file,
+                });
+                if (!putRes.ok) throw new Error(`Error al subir a Drive (${putRes.status})`);
+                const data = await putRes.json();
+                if (!data.id) throw new Error('No se obtuvo el ID del archivo');
+                newIds.push(data.id);
                 progressLog[i] = `✓ ${file.name}`;
-            } else {
-                progressLog[i] = `✗ ${file.name}: ${result.error}`;
+            } catch (err: any) {
+                progressLog[i] = `✗ ${file.name}: ${err.message ?? 'Error'}`;
             }
             setUploadProgress([...progressLog]);
         }
