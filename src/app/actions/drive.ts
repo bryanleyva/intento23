@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { auth } from '@/lib/google-sheets';
 import { Readable } from 'stream';
 import { del } from '@vercel/blob';
+import { BLOB_TOKEN } from '@/lib/blob-token';
 
 export async function uploadFileToDrive(formData: FormData) {
     try {
@@ -114,7 +115,7 @@ export async function uploadFromBlobUrl(blobUrl: string, fileName: string, mimeT
 
         // Limpia el blob temporal (no bloqueante si falla).
         try {
-            await del(blobUrl);
+            await del(blobUrl, { token: BLOB_TOKEN });
         } catch (e) {
             console.warn('No se pudo borrar el blob temporal:', e);
         }

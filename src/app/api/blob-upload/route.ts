@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { BLOB_TOKEN } from '@/lib/blob-token';
 
 // Genera un token de subida a Vercel Blob para el navegador.
 // El archivo sube directo del navegador a Blob (sin pasar por la Server
@@ -14,6 +15,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         const jsonResponse = await handleUpload({
             body,
             request,
+            token: BLOB_TOKEN,
             onBeforeGenerateToken: async () => {
                 // Solo usuarios autenticados pueden subir.
                 const session = await getServerSession(authOptions);
