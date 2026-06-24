@@ -32,6 +32,8 @@ export async function POST(request: Request): Promise<NextResponse> {
                         'application/octet-stream',
                     ],
                     maximumSizeInBytes: 50 * 1024 * 1024, // 50 MB
+                    // Nombre temporal único en Blob para evitar choques de nombres.
+                    addRandomSuffix: true,
                 };
             },
             onUploadCompleted: async () => {

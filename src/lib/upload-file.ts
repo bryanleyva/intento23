@@ -12,9 +12,8 @@ export async function uploadFileToDrive(file: File): Promise<string> {
     const blob = await upload(file.name, file, {
         access: 'public',
         handleUploadUrl: '/api/blob-upload',
-        // Sufijo aleatorio para el nombre temporal en Blob: evita choques si ya
-        // existe un blob con el mismo nombre. El nombre real en Drive no cambia.
-        addRandomSuffix: true,
+        // addRandomSuffix se configura en el servidor (route /api/blob-upload),
+        // para evitar choques de nombres en Blob. El nombre real en Drive no cambia.
     });
 
     const res = await uploadFromBlobUrl(blob.url, file.name, file.type);
