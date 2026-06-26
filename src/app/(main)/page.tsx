@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import UserFotocheck from '@/components/UserFotocheck';
-import { getPostVentaReporteData } from '@/app/actions/postventa-reporte';
-import { exportVentasActivasPorSupervisor } from '@/lib/excel-utils';
+import { getVentasStandardMensual } from '@/app/actions/ventas-standard';
+import { exportEjecutivosStandardMensual } from '@/lib/excel-utils';
 import { AppSwal } from '@/lib/sweetalert';
 
 export default function InicioPage() {
@@ -15,14 +15,14 @@ export default function InicioPage() {
         if (downloading) return;
         setDownloading(true);
         try {
-            const res = await getPostVentaReporteData();
+            const res = await getVentasStandardMensual();
             if (!res.success || !res.data) {
                 AppSwal.fire({ icon: 'error', title: 'Error', text: res.error || 'No se pudieron obtener las ventas.' });
                 return;
             }
-            await exportVentasActivasPorSupervisor(res.data);
+            await exportEjecutivosStandardMensual(res.data, res.year ?? new Date().getFullYear());
         } catch (e) {
-            console.error('Error al descargar ventas activas:', e);
+            console.error('Error al descargar ventas standard:', e);
             AppSwal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un problema al generar el reporte.' });
         } finally {
             setDownloading(false);
@@ -181,13 +181,13 @@ export default function InicioPage() {
                                                 <polyline points="7 10 12 15 17 10" />
                                                 <line x1="12" y1="15" x2="12" y2="3" />
                                             </svg>
-                                            Descargar ventas activas (XLSX)
+                                            Descargar ventas por ejecutivo (XLSX)
                                         </>
                                     )}
                                 </button>
                                 <span style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>
-                                    Todas las ventas en estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong> del año en curso (enero → hoy),
-                                    una hoja por supervisor y ordenadas por ejecutivo.
+                                    Hoja <strong style={{ color: '#9ca3af' }}>EJECUTIVOS-STANDARD</strong>: comparativa mensual de líneas
+                                    (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) por ejecutivo de rol STANDAR, de enero al mes actual.
                                 </span>
                             </div>
                         )}

@@ -250,3 +250,80 @@ export async function exportVentasActivasPorSupervisor(rows: any[]) {
         AppSwal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el archivo Excel.' });
     }
 }
+
+/* --------------------------------------------------------------------------
+ * Hoja EJECUTIVOS-STANDARD: comparativa mensual de LÍNEAS por ejecutivo
+ * (matriz ejecutivo × mes). Recibe filas de getVentasStandardMensual().
+ * ----------------------------------------------------------------------- */
+
+const MESES_ES = [
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
+];
+
+export async function exportEjecutivosStandardMensual(
+    data: { ejecutivo: string; meses: number[]; total: number }[],
+    year: number,
+) {
+    if (!data || data.length === 0) {
+        AppSwal.fire({ icon: 'info', title: 'Sin datos', text: 'No hay ventas ACTIVADO de ejecutivos STANDAR para el año seleccionado.' });
+        return;
+    }
+
+    // Mostrar meses de enero al mes actual (si es el año en curso); si no, los 12.
+    const now = new Date();
+    const monthsToShow = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+
+    try {
+        const ExcelJS = (await import('exceljs')).default;
+        const workbook = new ExcelJS.Workbook();
+        const ws = workbook.addWorksheet('EJECUTIVOS-STANDARD');
+
+        const cols: { header: string; key: string; width: number }[] = [
+            { header: 'EJECUTIVO', key: 'ejecutivo', width: 30 },
+        ];
+        for (let m = 0; m < monthsToShow; m++) {
+            cols.push({ header: MESES_ES[m], key: `m${m}`, width: 11 });
+        }
+        cols.push({ header: 'TOTAL', key: 'total', width: 12 });
+        ws.columns = cols;
+        styleVentasHeader(ws.getRow(1));
+
+        const monthTotals = new Array(monthsToShow).fill(0);
+        let grandTotal = 0;
+
+        data.forEach(e => {
+            const row: any = { ejecutivo: e.ejecutivo };
+            let rowTotal = 0;
+            for (let m = 0; m < monthsToShow; m++) {
+                const v = Number(e.meses?.[m] || 0);
+                row[`m${m}`] = v;
+                monthTotals[m] += v;
+                rowTotal += v;
+            }
+            row.total = rowTotal;
+            grandTotal += rowTotal;
+            ws.addRow(row);
+        });
+
+        const totalObj: any = { ejecutivo: 'TOTAL' };
+        for (let m = 0; m < monthsToShow; m++) totalObj[`m${m}`] = monthTotals[m];
+        totalObj.total = grandTotal;
+        const totalRow = ws.addRow(totalObj);
+        totalRow.font = { bold: true };
+
+        ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 1 }];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `Ejecutivos_Standard_Lineas_${year}.xlsx`;
+        anchor.click();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Error exporting ejecutivos standard:', error);
+        AppSwal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el archivo Excel.' });
+    }
+}
