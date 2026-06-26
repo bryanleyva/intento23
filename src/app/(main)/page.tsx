@@ -1,10 +1,33 @@
 'use client';
 
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import UserFotocheck from '@/components/UserFotocheck';
+import { getPostVentaReporteData } from '@/app/actions/postventa-reporte';
+import { exportVentasActivasPorSupervisor } from '@/lib/excel-utils';
+import { AppSwal } from '@/lib/sweetalert';
 
 export default function InicioPage() {
     const { data: session, status } = useSession();
+    const [downloading, setDownloading] = useState(false);
+
+    const handleDescargarVentasActivas = async () => {
+        if (downloading) return;
+        setDownloading(true);
+        try {
+            const res = await getPostVentaReporteData();
+            if (!res.success || !res.data) {
+                AppSwal.fire({ icon: 'error', title: 'Error', text: res.error || 'No se pudieron obtener las ventas.' });
+                return;
+            }
+            await exportVentasActivasPorSupervisor(res.data);
+        } catch (e) {
+            console.error('Error al descargar ventas activas:', e);
+            AppSwal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un problema al generar el reporte.' });
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     if (status === 'loading') {
         return (
@@ -40,6 +63,7 @@ export default function InicioPage() {
                     from { opacity: 0; transform: translateY(10px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
+                @keyframes spin { to { transform: rotate(360deg); } }
                 .layout-wrapper-inicio {
                     display: flex;
                     flex-direction: row;
@@ -110,6 +134,63 @@ export default function InicioPage() {
                             Bienvenido a tu panel de control MK. Aquí puedes gestionar tus ventas,
                             revisar leads y monitorear tu desempeño en tiempo real. Selecciona una opción del menú para continuar.
                         </p>
+
+                        {userData?.role === 'ADMIN' && (
+                            <div style={{
+                                marginTop: '2rem',
+                                paddingTop: '2rem',
+                                borderTop: '1px solid rgba(255,255,255,0.08)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.75rem',
+                            }}>
+                                <span style={{ color: '#10b981', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                    Solo administradores
+                                </span>
+                                <button
+                                    onClick={handleDescargarVentasActivas}
+                                    disabled={downloading}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.7rem',
+                                        alignSelf: 'flex-start',
+                                        padding: '0.85rem 1.5rem',
+                                        background: downloading ? 'rgba(16,185,129,0.25)' : '#10b981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '0.7rem',
+                                        fontWeight: 700,
+                                        fontSize: '0.95rem',
+                                        cursor: downloading ? 'default' : 'pointer',
+                                        transition: 'background 0.2s, transform 0.1s',
+                                        boxShadow: '0 8px 20px -8px rgba(16,185,129,0.6)',
+                                    }}
+                                    onMouseEnter={e => { if (!downloading) (e.currentTarget as HTMLElement).style.background = '#0ea271'; }}
+                                    onMouseLeave={e => { if (!downloading) (e.currentTarget as HTMLElement).style.background = '#10b981'; }}
+                                >
+                                    {downloading ? (
+                                        <>
+                                            <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                                            Generando…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                            Descargar ventas activas (XLSX)
+                                        </>
+                                    )}
+                                </button>
+                                <span style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                                    Todas las ventas en estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong> del año en curso (enero → hoy),
+                                    una hoja por supervisor y ordenadas por ejecutivo.
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* PDF Resource Cards */}
