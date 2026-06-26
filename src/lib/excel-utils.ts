@@ -253,26 +253,18 @@ export async function exportVentasActivasPorSupervisor(rows: any[]) {
 
 /* --------------------------------------------------------------------------
  * Hoja EJECUTIVOS-STANDARD: comparativa mensual de LÍNEAS por ejecutivo
- * (matriz ejecutivo × mes). Recibe filas de getVentasStandardMensual().
+ * (matriz ejecutivo × mes). Las columnas de mes son dinámicas, según la
+ * ventana devuelta por getVentasStandardMensual().
  * ----------------------------------------------------------------------- */
 
-const MESES_ES = [
-    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
-];
-
 export async function exportEjecutivosStandardMensual(
-    data: { ejecutivo: string; meses: number[]; total: number }[],
-    year: number,
+    data: { ejecutivo: string; valores: number[]; total: number }[],
+    columnas: { label: string }[],
 ) {
     if (!data || data.length === 0) {
-        AppSwal.fire({ icon: 'info', title: 'Sin datos', text: 'No hay ventas ACTIVADO de ejecutivos STANDAR para el año seleccionado.' });
+        AppSwal.fire({ icon: 'info', title: 'Sin datos', text: 'No hay ventas ACTIVADO de ejecutivos STANDAR en el periodo seleccionado.' });
         return;
     }
-
-    // Mostrar meses de enero al mes actual (si es el año en curso); si no, los 12.
-    const now = new Date();
-    const monthsToShow = year === now.getFullYear() ? now.getMonth() + 1 : 12;
 
     try {
         const ExcelJS = (await import('exceljs')).default;
@@ -282,32 +274,30 @@ export async function exportEjecutivosStandardMensual(
         const cols: { header: string; key: string; width: number }[] = [
             { header: 'EJECUTIVO', key: 'ejecutivo', width: 30 },
         ];
-        for (let m = 0; m < monthsToShow; m++) {
-            cols.push({ header: MESES_ES[m], key: `m${m}`, width: 11 });
-        }
+        columnas.forEach((c, i) => cols.push({ header: c.label, key: `m${i}`, width: 14 }));
         cols.push({ header: 'TOTAL', key: 'total', width: 12 });
         ws.columns = cols;
         styleVentasHeader(ws.getRow(1));
 
-        const monthTotals = new Array(monthsToShow).fill(0);
+        const monthTotals = new Array(columnas.length).fill(0);
         let grandTotal = 0;
 
         data.forEach(e => {
             const row: any = { ejecutivo: e.ejecutivo };
             let rowTotal = 0;
-            for (let m = 0; m < monthsToShow; m++) {
-                const v = Number(e.meses?.[m] || 0);
-                row[`m${m}`] = v;
-                monthTotals[m] += v;
+            columnas.forEach((_, i) => {
+                const v = Number(e.valores?.[i] || 0);
+                row[`m${i}`] = v;
+                monthTotals[i] += v;
                 rowTotal += v;
-            }
+            });
             row.total = rowTotal;
             grandTotal += rowTotal;
             ws.addRow(row);
         });
 
         const totalObj: any = { ejecutivo: 'TOTAL' };
-        for (let m = 0; m < monthsToShow; m++) totalObj[`m${m}`] = monthTotals[m];
+        columnas.forEach((_, i) => { totalObj[`m${i}`] = monthTotals[i]; });
         totalObj.total = grandTotal;
         const totalRow = ws.addRow(totalObj);
         totalRow.font = { bold: true };
@@ -317,9 +307,12 @@ export async function exportEjecutivosStandardMensual(
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = window.URL.createObjectURL(blob);
+        const periodo = columnas.length
+            ? `${columnas[0].label}_a_${columnas[columnas.length - 1].label}`.replace(/\s+/g, '-')
+            : 'periodo';
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `Ejecutivos_Standard_Lineas_${year}.xlsx`;
+        anchor.download = `Ejecutivos_Standard_Lineas_${periodo}.xlsx`;
         anchor.click();
         window.URL.revokeObjectURL(url);
     } catch (error) {

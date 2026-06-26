@@ -13,14 +13,60 @@ export default function InicioPage() {
 
     const handleDescargarVentasActivas = async () => {
         if (downloading) return;
+
+        // Selector de mes/año final del reporte.
+        const now = new Date();
+        const curMonth = now.getMonth() + 1;
+        const curYear = now.getFullYear();
+        const MESES_SEL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const monthOpts = MESES_SEL.map((nm, i) => `<option value="${i + 1}" ${i + 1 === curMonth ? 'selected' : ''}>${nm}</option>`).join('');
+        let yearOpts = '';
+        for (let y = curYear; y >= curYear - 3; y--) {
+            yearOpts += `<option value="${y}" ${y === curYear ? 'selected' : ''}>${y}</option>`;
+        }
+
+        const result = await AppSwal.fire({
+            title: 'Periodo del reporte',
+            html: `
+                <div style="display:flex; gap:8px; justify-content:center; align-items:center;">
+                    <select id="vs-mes" class="swal2-select" style="margin:0; flex:1;">${monthOpts}</select>
+                    <select id="vs-anio" class="swal2-select" style="margin:0; width:120px;">${yearOpts}</select>
+                </div>
+                <p style="font-size:0.82rem; color:#888; margin:12px 4px 0;">Se incluirán 7 meses: el mes elegido y los 6 anteriores.</p>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Generar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => ({
+                mes: parseInt((document.getElementById('vs-mes') as HTMLSelectElement).value, 10),
+                anio: parseInt((document.getElementById('vs-anio') as HTMLSelectElement).value, 10),
+            }),
+        });
+
+        if (!result.isConfirmed || !result.value) return;
+        const { mes, anio } = result.value as { mes: number; anio: number };
+
         setDownloading(true);
         try {
-            const res = await getVentasStandardMensual();
-            if (!res.success || !res.data) {
+            const res = await getVentasStandardMensual({ endMonth: mes, endYear: anio, months: 7 });
+            if (!res.success || !res.data || !res.columnas) {
                 AppSwal.fire({ icon: 'error', title: 'Error', text: res.error || 'No se pudieron obtener las ventas.' });
                 return;
             }
-            await exportEjecutivosStandardMensual(res.data, res.year ?? new Date().getFullYear());
+            if (res.data.length === 0) {
+                const d = res.diag;
+                const detalle = d
+                    ? `Diagnóstico: ${d.activado} ventas ACTIVADO en total · ${d.standar} de ejecutivos STANDAR · ${d.enVentana} dentro del periodo elegido.`
+                    : '';
+                AppSwal.fire({
+                    icon: 'info',
+                    title: 'Sin datos',
+                    html: `No hay líneas de ejecutivos STANDAR en el periodo seleccionado.<br><br><span style="font-size:0.8rem;color:#888;">${detalle}</span>`,
+                });
+                return;
+            }
+            await exportEjecutivosStandardMensual(res.data, res.columnas);
         } catch (e) {
             console.error('Error al descargar ventas standard:', e);
             AppSwal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un problema al generar el reporte.' });
@@ -186,8 +232,9 @@ export default function InicioPage() {
                                     )}
                                 </button>
                                 <span style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>
-                                    Hoja <strong style={{ color: '#9ca3af' }}>EJECUTIVOS-STANDARD</strong>: comparativa mensual de líneas
-                                    (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) por ejecutivo de rol STANDAR, de enero al mes actual.
+                                    Hoja <strong style={{ color: '#9ca3af' }}>EJECUTIVOS-STANDARD</strong>: comparativa de líneas
+                                    (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) por ejecutivo de rol STANDAR.
+                                    Eliges el mes final y se arma una ventana de 7 meses hacia atrás.
                                 </span>
                             </div>
                         )}

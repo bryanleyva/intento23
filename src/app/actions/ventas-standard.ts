@@ -3,12 +3,23 @@
 import { doc, loadDoc } from '@/lib/google-sheets';
 import { UserCache } from '@/lib/user-cache';
 
+export interface MesColumna {
+    label: string; // p.ej. "ENERO 2026"
+    year: number;
+    month: number; // 1-12
+}
+
 export interface EjecutivoMensual {
     ejecutivo: string;
-    /** 12 posiciones (ene..dic) con el total de LÍNEAS de ventas ACTIVADO. */
-    meses: number[];
+    /** Total de LÍNEAS por mes, alineado al orden de `columnas`. */
+    valores: number[];
     total: number;
 }
+
+const MESES = [
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
+];
 
 function parseFecha(raw: string): Date | null {
     if (!raw) return null;
@@ -33,19 +44,43 @@ function norm(s: any): string {
 }
 
 /**
- * Comparativa mensual de LÍNEAS vendidas (estado ACTIVADO) por ejecutivo,
- * SOLO para ejecutivos con ROL = STANDAR (cruzando VENTAS con USUARIOS).
- * Por defecto toma el año en curso.
+ * Comparativa de LÍNEAS vendidas (estado ACTIVADO) por ejecutivo de ROL STANDAR,
+ * en una ventana de meses que TERMINA en (endMonth/endYear) e incluye `months`
+ * meses hacia atrás (por defecto 7: el mes elegido + los 6 anteriores).
+ * La ventana cruza el cambio de año sin problema.
  */
 export async function getVentasStandardMensual(
-    year?: number
-): Promise<{ success: boolean; data?: EjecutivoMensual[]; year?: number; error?: string }> {
+    opts?: { endYear?: number; endMonth?: number; months?: number }
+): Promise<{
+    success: boolean;
+    data?: EjecutivoMensual[];
+    columnas?: MesColumna[];
+    diag?: { activado: number; standar: number; enVentana: number };
+    error?: string;
+}> {
     try {
         await loadDoc();
         const sheet = doc.sheetsByTitle['VENTAS'];
         if (!sheet) return { success: false, error: 'Hoja VENTAS no encontrada' };
 
-        const targetYear = year ?? new Date().getFullYear();
+        const now = new Date();
+        const endYear = opts?.endYear ?? now.getFullYear();
+        const endMonth = opts?.endMonth ?? (now.getMonth() + 1);
+        const months = Math.max(1, Math.min(24, opts?.months ?? 7));
+
+        // Ventana de meses (de más antiguo a más reciente).
+        const columnas: MesColumna[] = [];
+        {
+            let y = endYear;
+            let m = endMonth;
+            for (let i = 0; i < months; i++) {
+                columnas.unshift({ label: `${MESES[m - 1]} ${y}`, year: y, month: m });
+                m--;
+                if (m < 1) { m = 12; y--; }
+            }
+        }
+        const indexByKey = new Map<string, number>();
+        columnas.forEach((c, i) => indexByKey.set(`${c.year}-${c.month}`, i));
 
         // Mapa nombre/usuario -> ROL desde USUARIOS (clave normalizada).
         const userCache = UserCache.getInstance();
@@ -60,36 +95,42 @@ export async function getVentasStandardMensual(
         }
 
         const rows = await sheet.getRows();
-
-        // Acumula líneas por ejecutivo (clave normalizada) y mes.
-        const acc = new Map<string, { display: string; meses: number[] }>();
+        const acc = new Map<string, { display: string; valores: number[] }>();
+        const diag = { activado: 0, standar: 0, enVentana: 0 };
 
         for (const row of rows) {
             if (norm(row.get('ESTADO')) !== 'ACTIVADO') continue;
+            diag.activado++;
 
             const ejecutivoRaw = row.get('EJECUTIVO') || '';
             const key = norm(ejecutivoRaw);
             if (!key) continue;
 
-            // Solo ejecutivos con ROL STANDAR.
-            if (rolByName.get(key) !== 'STANDAR') continue;
+            // Solo ROL STANDAR (acepta también "STANDARD").
+            const rol = rolByName.get(key) || '';
+            if (!rol.startsWith('STANDAR')) continue;
+            diag.standar++;
 
             const fecha = parseFecha(row.get('FECHA ACTIVACION') || row.get('FECHA FIN') || row.get('FECHA INICIO') || '');
-            if (!fecha || fecha.getFullYear() !== targetYear) continue;
+            if (!fecha) continue;
+
+            const idx = indexByKey.get(`${fecha.getFullYear()}-${fecha.getMonth() + 1}`);
+            if (idx === undefined) continue; // fuera de la ventana
+            diag.enVentana++;
 
             let entry = acc.get(key);
             if (!entry) {
-                entry = { display: String(ejecutivoRaw).trim(), meses: new Array(12).fill(0) };
+                entry = { display: String(ejecutivoRaw).trim(), valores: new Array(months).fill(0) };
                 acc.set(key, entry);
             }
-            entry.meses[fecha.getMonth()] += toLineas(row.get('CANTIDAD LINEAS'));
+            entry.valores[idx] += toLineas(row.get('CANTIDAD LINEAS'));
         }
 
         const data: EjecutivoMensual[] = Array.from(acc.values())
-            .map(e => ({ ejecutivo: e.display, meses: e.meses, total: e.meses.reduce((a, b) => a + b, 0) }))
+            .map(e => ({ ejecutivo: e.display, valores: e.valores, total: e.valores.reduce((a, b) => a + b, 0) }))
             .sort((a, b) => a.ejecutivo.localeCompare(b.ejecutivo, 'es'));
 
-        return { success: true, data, year: targetYear };
+        return { success: true, data, columnas, diag };
     } catch (error) {
         console.error('Error in getVentasStandardMensual:', error);
         return { success: false, error: 'Error al generar el reporte' };
