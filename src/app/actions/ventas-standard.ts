@@ -33,6 +33,31 @@ function parseFecha(raw: string): Date | null {
     return new Date(year, month - 1, day);
 }
 
+/**
+ * Determina el (año, mes) en que cuenta la venta. Prioriza FECHA PERIODO
+ * (formato "MM/YYYY"), igual que el linker; si no, usa las otras fechas.
+ */
+function resolvePeriodo(row: any): { year: number; month: number } | null {
+    const fp = String(row.get('FECHA PERIODO') || '').trim();
+    if (fp) {
+        const parts = fp.split('/').map((p: string) => p.trim());
+        if (parts.length === 2) {
+            const m = parseInt(parts[0], 10);
+            const y = parseInt(parts[1], 10);
+            if (!isNaN(m) && !isNaN(y) && m >= 1 && m <= 12) return { year: y, month: m };
+        }
+        if (parts.length === 3) {
+            // Por si viniera como DD/MM/YYYY.
+            const m = parseInt(parts[1], 10);
+            const y = parseInt(parts[2], 10);
+            if (!isNaN(m) && !isNaN(y) && m >= 1 && m <= 12) return { year: y, month: m };
+        }
+    }
+    const d = parseFecha(row.get('FECHA ACTIVACION') || row.get('FECHA FIN') || row.get('FECHA INICIO') || '');
+    if (d) return { year: d.getFullYear(), month: d.getMonth() + 1 };
+    return null;
+}
+
 function toLineas(raw: any): number {
     if (raw == null) return 0;
     const n = parseInt(String(raw).replace(/[^\d-]/g, ''), 10);
@@ -55,7 +80,7 @@ export async function getVentasStandardMensual(
     success: boolean;
     data?: EjecutivoMensual[];
     columnas?: MesColumna[];
-    diag?: { activado: number; standar: number; enVentana: number };
+    diag?: { activado: number; ejecutivos: number; enVentana: number };
     error?: string;
 }> {
     try {
@@ -82,21 +107,21 @@ export async function getVentasStandardMensual(
         const indexByKey = new Map<string, number>();
         columnas.forEach((c, i) => indexByKey.set(`${c.year}-${c.month}`, i));
 
-        // Mapa nombre/usuario -> ROL desde USUARIOS (clave normalizada).
+        // Mapa nombre/usuario -> CARGO desde USUARIOS (clave normalizada).
         const userCache = UserCache.getInstance();
         await userCache.ensureInitialized();
-        const rolByName = new Map<string, string>();
+        const cargoByName = new Map<string, string>();
         for (const u of userCache.getAll()) {
-            const rol = norm(u.get('ROL'));
+            const cargo = norm(u.get('CARGO'));
             const nombres = norm(u.get('NOMBRES COMPLETOS'));
             const user = norm(u.get('USER'));
-            if (nombres) rolByName.set(nombres, rol);
-            if (user) rolByName.set(user, rol);
+            if (nombres) cargoByName.set(nombres, cargo);
+            if (user) cargoByName.set(user, cargo);
         }
 
         const rows = await sheet.getRows();
         const acc = new Map<string, { display: string; valores: number[] }>();
-        const diag = { activado: 0, standar: 0, enVentana: 0 };
+        const diag = { activado: 0, ejecutivos: 0, enVentana: 0 };
 
         for (const row of rows) {
             if (norm(row.get('ESTADO')) !== 'ACTIVADO') continue;
@@ -106,15 +131,16 @@ export async function getVentasStandardMensual(
             const key = norm(ejecutivoRaw);
             if (!key) continue;
 
-            // Solo ROL STANDAR (acepta también "STANDARD").
-            const rol = rolByName.get(key) || '';
-            if (!rol.startsWith('STANDAR')) continue;
-            diag.standar++;
+            // Solo CARGO = EJECUTIVO DE VENTAS (tolera "EJECUTIVO DE VENTA/S").
+            const cargo = cargoByName.get(key) || '';
+            if (!cargo.startsWith('EJECUTIVO DE VENTA')) continue;
+            diag.ejecutivos++;
 
-            const fecha = parseFecha(row.get('FECHA ACTIVACION') || row.get('FECHA FIN') || row.get('FECHA INICIO') || '');
-            if (!fecha) continue;
+            // El mes en que cuenta la venta lo da FECHA PERIODO (como el linker).
+            const periodo = resolvePeriodo(row);
+            if (!periodo) continue;
 
-            const idx = indexByKey.get(`${fecha.getFullYear()}-${fecha.getMonth() + 1}`);
+            const idx = indexByKey.get(`${periodo.year}-${periodo.month}`);
             if (idx === undefined) continue; // fuera de la ventana
             diag.enVentana++;
 
