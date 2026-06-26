@@ -71,6 +71,7 @@ const STATUS_COLORS: Record<string, string> = {
     'PENDIENTE ENVÍO': 'status-sky',
     'FLUXO': 'status-blue',
     'ACTIVADO': 'status-emerald',
+    'ACTIVO OTRO MES': 'status-emerald',
     'SE NECESITA ARCHIVOS': 'status-amber',
 };
 
@@ -82,6 +83,7 @@ const STATUS_OPTIONS = [
     'OBSERVADO POR ENTEL',
     'PROCESO DE ACTIVACION',
     'ACTIVADO',
+    'ACTIVO OTRO MES',
     'RECHAZADO'
 ];
 
@@ -312,8 +314,8 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
         const sale = ventas.find(v => v.id === id);
         if (!sale) return;
 
-        // VALIDATION: ACTIVADO
-        if (newStatus === 'ACTIVADO') {
+        // VALIDATION: ACTIVADO / ACTIVO OTRO MES
+        if (newStatus === 'ACTIVADO' || newStatus === 'ACTIVO OTRO MES') {
             const missingFields = [];
             if (!sale.srIngreso) missingFields.push('SR de Ingreso');
             if (!sale.numOrden) missingFields.push('Número de Orden');
@@ -434,6 +436,18 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
             updatedPeriod = period;
         }
 
+        // ACTIVO OTRO MES: activa la venta pero la cuenta el MES SIGUIENTE.
+        // Se guarda como ACTIVADO (para que cuente en todo el sistema) y se
+        // fija FECHA PERIODO al mes siguiente al actual.
+        let effectiveStatus = newStatus;
+        let nextMonthPeriod = '';
+        if (newStatus === 'ACTIVO OTRO MES') {
+            const n = new Date();
+            const nx = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+            nextMonthPeriod = `${String(nx.getMonth() + 1).padStart(2, '0')}/${nx.getFullYear()}`;
+            effectiveStatus = 'ACTIVADO';
+        }
+
         setUpdatingStatus(id);
         try {
             // If we have a period update, we need to use updateVentaData instead of updateVentaStatus
@@ -443,15 +457,25 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
                     estado: newStatus,
                     fechaPeriodo: updatedPeriod
                 }, currentUserName);
+            } else if (newStatus === 'ACTIVO OTRO MES') {
+                result = await updateVentaData(id, {
+                    estado: 'ACTIVADO',
+                    fechaPeriodo: nextMonthPeriod
+                }, currentUserName);
             } else {
                 result = await updateVentaStatus(id, newStatus, currentUserName);
             }
 
             if (result.success) {
-                setVentas(prev => prev.map(v => v.id === id ? { ...v, estado: newStatus, ...(newStatus === 'PROCESO DE ACTIVACION' ? { fechaPeriodo: updatedPeriod } : {}) } : v));
+                setVentas(prev => prev.map(v => v.id === id ? {
+                    ...v,
+                    estado: effectiveStatus,
+                    ...(newStatus === 'PROCESO DE ACTIVACION' ? { fechaPeriodo: updatedPeriod } : {}),
+                    ...(newStatus === 'ACTIVO OTRO MES' ? { fechaPeriodo: nextMonthPeriod } : {}),
+                } : v));
                 AppSwal.fire({
                     icon: 'success',
-                    title: 'Estado actualizado',
+                    title: newStatus === 'ACTIVO OTRO MES' ? `Activada para ${nextMonthPeriod}` : 'Estado actualizado',
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,

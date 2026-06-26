@@ -57,12 +57,12 @@ export default function InicioPage() {
             if (res.data.length === 0) {
                 const d = res.diag;
                 const detalle = d
-                    ? `Diagnóstico: ${d.activado} ventas ACTIVADO en total · ${d.ejecutivos} de cargo EJECUTIVO DE VENTAS · ${d.enVentana} dentro del periodo elegido.`
+                    ? `Diagnóstico: ${d.activado} ventas ACTIVADO en total · ${d.ejecutivos} ejecutivos con ventas · ${d.enVentana} dentro del periodo elegido.`
                     : '';
                 AppSwal.fire({
                     icon: 'info',
                     title: 'Sin datos',
-                    html: `No hay líneas de EJECUTIVO DE VENTAS en el periodo seleccionado.<br><br><span style="font-size:0.8rem;color:#888;">${detalle}</span>`,
+                    html: `No hay líneas en el periodo seleccionado.<br><br><span style="font-size:0.8rem;color:#888;">${detalle}</span>`,
                 });
                 return;
             }
@@ -233,7 +233,7 @@ export default function InicioPage() {
                                 </button>
                                 <span style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>
                                     Hoja <strong style={{ color: '#9ca3af' }}>EJECUTIVOS-STANDARD</strong>: comparativa de líneas
-                                    (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) por cargo EJECUTIVO DE VENTAS, según FECHA PERIODO.
+                                    (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) de todos los ejecutivos de la hoja VENTAS, según FECHA PERIODO.
                                     Eliges el mes final y se arma una ventana de 7 meses hacia atrás.
                                 </span>
                             </div>

@@ -1,7 +1,6 @@
 'use server';
 
 import { doc, loadDoc } from '@/lib/google-sheets';
-import { UserCache } from '@/lib/user-cache';
 
 export interface MesColumna {
     label: string; // p.ej. "ENERO 2026"
@@ -107,34 +106,22 @@ export async function getVentasStandardMensual(
         const indexByKey = new Map<string, number>();
         columnas.forEach((c, i) => indexByKey.set(`${c.year}-${c.month}`, i));
 
-        // Mapa nombre/usuario -> CARGO desde USUARIOS (clave normalizada).
-        const userCache = UserCache.getInstance();
-        await userCache.ensureInitialized();
-        const cargoByName = new Map<string, string>();
-        for (const u of userCache.getAll()) {
-            const cargo = norm(u.get('CARGO'));
-            const nombres = norm(u.get('NOMBRES COMPLETOS'));
-            const user = norm(u.get('USER'));
-            if (nombres) cargoByName.set(nombres, cargo);
-            if (user) cargoByName.set(user, cargo);
-        }
-
         const rows = await sheet.getRows();
         const acc = new Map<string, { display: string; valores: number[] }>();
+        const ejecSet = new Set<string>();
         const diag = { activado: 0, ejecutivos: 0, enVentana: 0 };
 
         for (const row of rows) {
             if (norm(row.get('ESTADO')) !== 'ACTIVADO') continue;
             diag.activado++;
 
+            // Tomamos el ejecutivo TAL CUAL aparece en la hoja VENTAS, sin
+            // filtrar por USUARIOS. Así no se pierden ejecutivos que fueron
+            // borrados de USUARIOS pero que aún tienen ventas registradas.
             const ejecutivoRaw = row.get('EJECUTIVO') || '';
             const key = norm(ejecutivoRaw);
             if (!key) continue;
-
-            // Solo CARGO = EJECUTIVO DE VENTAS (tolera "EJECUTIVO DE VENTA/S").
-            const cargo = cargoByName.get(key) || '';
-            if (!cargo.startsWith('EJECUTIVO DE VENTA')) continue;
-            diag.ejecutivos++;
+            ejecSet.add(key);
 
             // El mes en que cuenta la venta lo da FECHA PERIODO (como el linker).
             const periodo = resolvePeriodo(row);
@@ -151,6 +138,7 @@ export async function getVentasStandardMensual(
             }
             entry.valores[idx] += toLineas(row.get('CANTIDAD LINEAS'));
         }
+        diag.ejecutivos = ejecSet.size;
 
         const data: EjecutivoMensual[] = Array.from(acc.values())
             .map(e => ({ ejecutivo: e.display, valores: e.valores, total: e.valores.reduce((a, b) => a + b, 0) }))
