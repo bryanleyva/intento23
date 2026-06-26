@@ -314,8 +314,9 @@ export default function SessionLinker({ currentUserRole, currentUserName, curren
         const sale = ventas.find(v => v.id === id);
         if (!sale) return;
 
-        // VALIDATION: ACTIVADO / ACTIVO OTRO MES
-        if (newStatus === 'ACTIVADO' || newStatus === 'ACTIVO OTRO MES') {
+        // VALIDATION: ACTIVADO (ACTIVO OTRO MES no pide datos: solo pasa la
+        // venta al mes siguiente y backoffice la completa después).
+        if (newStatus === 'ACTIVADO') {
             const missingFields = [];
             if (!sale.srIngreso) missingFields.push('SR de Ingreso');
             if (!sale.numOrden) missingFields.push('Número de Orden');
