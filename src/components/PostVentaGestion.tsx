@@ -81,10 +81,26 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const [vista, setVista] = useState<Vista>(isJefeBO ? 'historial' : 'gestion');
     const [guardadas, setGuardadas] = useState<Set<string>>(() => new Set(initialGuardadas ?? []));
     const [filterEjecutivo, setFilterEjecutivo] = useState('');
+    const [search, setSearch] = useState('');
+    const [segFilter, setSegFilter] = useState('ALL');
+    const [rucFilter, setRucFilter] = useState<'ALL' | 'RUC10' | 'RUC20'>('ALL');
+    const [nuevasFilter, setNuevasFilter] = useState<'ALL' | 'NUEVAS' | 'GESTIONADAS'>('ALL');
+    const [showList, setShowList] = useState(false);
 
-    const filteredCuentas = filterEjecutivo
-        ? cuentas.filter(c => c.ejecutivo === filterEjecutivo)
-        : cuentas;
+    const _q = search.trim().toLowerCase();
+    const filteredCuentas = cuentas.filter(c => {
+        if (filterEjecutivo && c.ejecutivo !== filterEjecutivo) return false;
+        if (segFilter !== 'ALL' && (c.segmento || '').toUpperCase() !== segFilter) return false;
+        if (rucFilter === 'RUC10' && !c.isRuc10) return false;
+        if (rucFilter === 'RUC20' && c.isRuc10) return false;
+        if (nuevasFilter === 'NUEVAS' && guardadas.has(c.ruc)) return false;
+        if (nuevasFilter === 'GESTIONADAS' && !guardadas.has(c.ruc)) return false;
+        if (_q) {
+            const hay = `${c.ruc} ${c.razonSocial} ${c.ejecutivo}`.toLowerCase();
+            if (!hay.includes(_q)) return false;
+        }
+        return true;
+    });
 
     const [idx, setIdx] = useState<number>(() => {
         const saved = new Set(initialGuardadas ?? []);
@@ -132,6 +148,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const terminado = guardadasEnFiltro === total && total > 0;
 
     const ejecutivosUnicos = [...new Set(cuentas.map(c => c.ejecutivo).filter(Boolean))].sort();
+    const segmentosUnicos = [...new Set(cuentas.map(c => (c.segmento || '').toUpperCase()).filter(Boolean))].sort();
 
     // Derived estado/motivo/submotivo config
     const estadoConfig = selectedEstado ? ESTADOS[selectedEstado] : null;
@@ -149,7 +166,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         const firstUnsaved = filteredCuentas.findIndex(c => !guardadas.has(c.ruc));
         setIdx(firstUnsaved >= 0 ? firstUnsaved : 0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterEjecutivo]);
+    }, [filterEjecutivo, search, segFilter, rucFilter, nuevasFilter]);
 
     useEffect(() => {
         if (isJefeBO) return;
@@ -519,6 +536,15 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
 
                 @keyframes spin { to { transform:rotate(360deg); } }
                 .pv-spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.2); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
+                .pv-jump-list { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin:0.5rem 0 1rem; padding:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:0.75rem; }
+                .pv-jump-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:0.6rem; padding:8px 10px; cursor:pointer; color:#cbd5e1; transition:background .12s, border-color .12s; }
+                .pv-jump-item:hover { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.12); }
+                .pv-jump-item.active { border-color:#10b981; background:rgba(16,185,129,0.08); }
+                .pv-jump-idx { flex-shrink:0; width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; font-size:0.7rem; font-weight:800; color:#94a3b8; }
+                .pv-jump-main { display:flex; flex-direction:column; min-width:0; flex:1; }
+                .pv-jump-ruc { font-size:0.75rem; font-weight:800; color:#e2e8f0; }
+                .pv-jump-name { font-size:0.7rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                .pv-jump-status { flex-shrink:0; font-size:0.85rem; }
             `}</style>
 
             {/* TABS */}
@@ -558,13 +584,64 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
             {/* ══════════ GESTIÓN ══════════ */}
             {vista === 'gestion' && (
                 <>
-                    {ejecutivosUnicos.length > 0 && (
-                        <div className="pv-filter-bar">
-                            <span className="pv-filter-label">Filtrar por ejecutivo:</span>
+                    <div className="pv-filter-bar" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <input
+                            className="pv-select"
+                            style={{ flex: '1 1 200px', minWidth: '180px' }}
+                            type="text"
+                            placeholder="🔍 Buscar RUC, razón social o ejecutivo..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        {ejecutivosUnicos.length > 0 && (
                             <select className="pv-select" value={filterEjecutivo} onChange={e => setFilterEjecutivo(e.target.value)}>
-                                <option value="">Todos ({cuentas.length})</option>
+                                <option value="">Ejecutivo: Todos</option>
                                 {ejecutivosUnicos.map(ej => <option key={ej} value={ej}>{ej}</option>)}
                             </select>
+                        )}
+                        {segmentosUnicos.length > 0 && (
+                            <select className="pv-select" value={segFilter} onChange={e => setSegFilter(e.target.value)}>
+                                <option value="ALL">Segmento: Todos</option>
+                                {segmentosUnicos.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        )}
+                        <select className="pv-select" value={rucFilter} onChange={e => setRucFilter(e.target.value as any)}>
+                            <option value="ALL">RUC: Todos</option>
+                            <option value="RUC20">RUC 20</option>
+                            <option value="RUC10">RUC 10</option>
+                        </select>
+                        <select className="pv-select" value={nuevasFilter} onChange={e => setNuevasFilter(e.target.value as any)}>
+                            <option value="ALL">Estado: Todas</option>
+                            <option value="NUEVAS">🆕 Nuevas (sin gestionar)</option>
+                            <option value="GESTIONADAS">✅ Gestionadas</option>
+                        </select>
+                        <button type="button" className="pv-select" style={{ cursor: 'pointer', fontWeight: 800, whiteSpace: 'nowrap' }} onClick={() => setShowList(s => !s)}>
+                            {showList ? '▲ Ocultar lista' : `▼ Ver lista (${total})`}
+                        </button>
+                    </div>
+
+                    {showList && (
+                        <div className="pv-jump-list">
+                            {filteredCuentas.length === 0 ? (
+                                <div style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontSize: '0.8rem' }}>Sin resultados</div>
+                            ) : filteredCuentas.map((c, i) => {
+                                const done = guardadas.has(c.ruc);
+                                return (
+                                    <button
+                                        key={c.ruc + '_' + i}
+                                        type="button"
+                                        className={`pv-jump-item ${i === idx ? 'active' : ''}`}
+                                        onClick={() => { setIdx(i); setShowList(false); }}
+                                    >
+                                        <span className="pv-jump-idx">{i + 1}</span>
+                                        <span className="pv-jump-main">
+                                            <span className="pv-jump-ruc">{c.ruc}{c.isRuc10 ? ' · RUC10' : ''}</span>
+                                            <span className="pv-jump-name">{c.razonSocial || '—'}{c.ejecutivo ? ` · ${c.ejecutivo}` : ''}</span>
+                                        </span>
+                                        <span className="pv-jump-status" style={{ color: done ? '#34d399' : '#fbbf24' }}>{done ? '✅' : '🆕'}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 

@@ -54,7 +54,9 @@ export default async function PostVentaPage() {
         );
     }
 
-    const rangeLabel = getDateRangeLabel();
+    const isAndrea = role === 'ANDREA';
+    // Andrea ve TODAS las cuentas activas (sin ventana de 6 meses).
+    const rangeLabel = isAndrea ? 'TODAS LAS CUENTAS ACTIVAS' : getDateRangeLabel();
     const isJefeBO = role === 'JEFE_BO';
     const showRuc10Tab = canAccessRuc10(role);
 
@@ -102,7 +104,7 @@ export default async function PostVentaPage() {
         Promise<{ success: boolean; data?: any[]; error?: string }>,
         Promise<{ success: boolean; data?: any[]; error?: string }>,
     ] = [
-        getPostVentaData(),
+        getPostVentaData(isAndrea),
         showRuc10Tab ? getPostVentaRuc10Data() : Promise.resolve({ success: true, data: [] }),
         getPostVentaHistorial(userName),
     ];

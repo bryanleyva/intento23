@@ -44,7 +44,7 @@ export interface PostVentaRecord {
  *
  * "Fecha del mes anterior" is computed from today's date in Lima time.
  */
-export async function getPostVentaData(): Promise<{ success: boolean; data?: PostVentaRecord[]; error?: string }> {
+export async function getPostVentaData(allTime = false): Promise<{ success: boolean; data?: PostVentaRecord[]; error?: string }> {
     try {
         await loadDoc();
         const sheet = doc.sheetsByTitle['VENTAS'];
@@ -60,6 +60,9 @@ export async function getPostVentaData(): Promise<{ success: boolean; data?: Pos
         const filtered = rows.filter(row => {
             const estado = (row.get('ESTADO') || '').trim().toUpperCase();
             if (estado !== 'ACTIVADO') return false;
+
+            // allTime (Andrea): todas las ACTIVADO sin ventana de fechas
+            if (allTime) return true;
 
             // Try FECHA FIN first, fall back to FECHA INICIO
             const rawFecha = row.get('FECHA FIN') || row.get('FECHA INICIO') || '';
