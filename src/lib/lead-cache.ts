@@ -185,8 +185,8 @@ export class LeadCache {
                 const normPool = poolSupervisor ? poolSupervisor.trim().toLowerCase() : null;
                 const availableCandidates = this.rows.filter(row => {
                     const exec = (row.get('EJECUTIVO') || '').trim();
-                    const ruc = row.get('RUC');
-                    if (!ruc || exec !== '' || !criteria(row)) return false;
+                    // No exigimos RUC: se asignan las filas con datos (línea en el rango) sin ejecutivo.
+                    if (exec !== '' || !criteria(row)) return false;
                     if (normPool) {
                         const sup = (row.get('SUPERVISOR') || '').trim().toLowerCase();
                         if (sup !== normPool) return false;
