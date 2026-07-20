@@ -265,6 +265,7 @@ export default function LeadManager({ userEmail, userName, userRole, baseType = 
         // Prepare data
         const dataToSave = {
             ...formState,
+            idRegistro: lead.idRegistro,
             ruc: lead.ruc,
             razonSocial: lead.razonSocial,
             assignedUser: userName,

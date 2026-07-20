@@ -37,6 +37,7 @@ export async function getNextLead(userEmail: string, userName: string) {
             success: true,
             data: {
                 id: (nextRow as any).rowIndex,
+                idRegistro: nextRow.get('ID REGISTRO'),
                 ruc: nextRow.get('RUC'),
                 razonSocial: nextRow.get('Razón Social'),
                 contacto: nextRow.get('Representante Legal'),
@@ -75,11 +76,13 @@ export async function saveLead(rowIndex: number, data: any) {
         // Use cache to validate ownership first (fast check)
         // Then update which triggers the slow save in background (or awaited)
 
-        const row = cache.getByRuc(data.ruc);
+        // Identificar por ID REGISTRO (único, existe incluso en leads sin RUC).
+        // Solo si no hay ID REGISTRO se cae al RUC (leads antiguos).
+        const useRegistro = !!(data.idRegistro && String(data.idRegistro).trim());
+        const row = useRegistro ? cache.getByRegistro(data.idRegistro) : cache.getByRuc(data.ruc);
         if (!row) {
-            console.error(`Row with RUC ${data.ruc} not found in cache.`);
-            // Fallback to load from sheet directly? No, cache should be truth.
-            return { success: false, error: 'Registro no encontrado (RUC mismatch).' };
+            console.error(`Registro no encontrado (idRegistro: ${data.idRegistro}, RUC: ${data.ruc}).`);
+            return { success: false, error: 'Registro no encontrado.' };
         }
 
         const currentExec = row.get('EJECUTIVO');
@@ -156,14 +159,16 @@ export async function saveLead(rowIndex: number, data: any) {
         }
 
         // Optimistic update ok? We await it for now.
-        const success = await cache.updateRow(data.ruc, updates);
+        const success = useRegistro
+            ? await cache.updateRowByRegistro(data.idRegistro, updates)
+            : await cache.updateRow(data.ruc, updates);
 
         if (success) {
-            console.log(`Lead ${data.ruc} saved successfully. Syncing to PROSPECCION...`);
+            console.log(`Lead saved successfully (idRegistro: ${data.idRegistro}, RUC: ${data.ruc}). Syncing to PROSPECCION...`);
 
-            // SYNC TO PROSPECCION
+            // SYNC TO PROSPECCION (solo si hay RUC; sin RUC no se puede cruzar).
             try {
-                const prospeccionSheet = doc.sheetsByTitle['PROSPECCION'];
+                const prospeccionSheet = data.ruc ? doc.sheetsByTitle['PROSPECCION'] : null;
                 if (prospeccionSheet) {
                     const pRows = await prospeccionSheet.getRows();
                     const relatedDeals = pRows.filter(r => String(r.get('RUC')) === String(data.ruc));
@@ -249,6 +254,7 @@ export async function getLeadByRuc(ruc: string) {
             success: true,
             data: {
                 id: (row as any).rowIndex,
+                idRegistro: row.get('ID REGISTRO'),
                 ruc: row.get('RUC'),
                 razonSocial: row.get('Razón Social'),
                 contacto: row.get('Representante Legal'),

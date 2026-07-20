@@ -297,6 +297,28 @@ export class LeadCache {
         return this.rows.find(r => r.get('RUC') === ruc);
     }
 
+    // Identificador único que SIEMPRE existe (incluso en leads sin RUC).
+    public getByRegistro(idRegistro: string) {
+        const target = String(idRegistro || '').trim();
+        if (!target) return undefined;
+        return this.rows.find(r => String(r.get('ID REGISTRO') || '').trim() === target);
+    }
+
+    public async updateRowByRegistro(idRegistro: string, updates: Record<string, any>) {
+        return this.runLocked(async () => {
+            const row = this.getByRegistro(idRegistro);
+            if (!row) return false;
+            Object.keys(updates).forEach(key => row.set(key, updates[key]));
+            try {
+                await row.save();
+                return true;
+            } catch (e) {
+                console.error('Error saving row (by registro) to sheets', e);
+                return false;
+            }
+        });
+    }
+
     public getAll() {
         return this.rows;
     }
