@@ -4,6 +4,7 @@ import { GoogleSpreadsheetRow } from 'google-spreadsheet';
 export class LeadCache {
     private static instance: LeadCache;
     private rows: any[] = [];
+    private headers: string[] = [];
     private lastFetch: number = 0;
     private CACHE_TTL = 30 * 1000; // 30 seconds for faster sync with Sheets
     private mutex: Promise<void> = Promise.resolve();
@@ -62,6 +63,23 @@ export class LeadCache {
             }
 
             await sheet.loadHeaderRow();
+            this.headers = sheet.headerValues || [];
+            // Auto-sana el encabezado del RUC si viene con espacios/mayúsculas distintas
+            // (ej. "RUC ", " ruc"). Sin esto, row.get('RUC') devuelve vacío en todas las filas.
+            if (!this.headers.includes('RUC')) {
+                const idx = this.headers.findIndex(h => (h || '').trim().toUpperCase() === 'RUC');
+                if (idx >= 0) {
+                    const fixed = [...this.headers];
+                    fixed[idx] = 'RUC';
+                    try {
+                        await sheet.setHeaderRow(fixed);
+                        this.headers = fixed;
+                        console.log('LeadCache: encabezado RUC normalizado.');
+                    } catch (e) {
+                        console.error('LeadCache: no se pudo normalizar encabezado RUC', e);
+                    }
+                }
+            }
             const rows = await sheet.getRows();
             this.rows = rows;
             this.lastFetch = Date.now();
@@ -186,7 +204,7 @@ export class LeadCache {
                     return {
                         success: false,
                         count: 0,
-                        error: `No hay leads disponibles para este criterio. (filas: ${filas} · con RUC: ${conRuc.length} · sin ejecutivo: ${sinEjec.length} · de este rango: ${delRango.length} · libres del rango: ${libresDelRango.length})`,
+                        error: `No hay leads disponibles para este criterio. (filas: ${filas} · con RUC: ${conRuc.length} · sin ejecutivo: ${sinEjec.length} · de este rango: ${delRango.length} · libres del rango: ${libresDelRango.length}) · columnas: [${this.headers.join(', ')}]`,
                     };
                 }
 
