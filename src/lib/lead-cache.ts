@@ -168,6 +168,7 @@ export class LeadCache {
 
                 if (availableCandidates.length === 0) {
                     // Diagnóstico: ayuda a entender por qué no hay candidatos.
+                    const filas = this.rows.length; // filas crudas leídas de BASE CLARO
                     const conRuc = this.rows.filter(r => r.get('RUC'));
                     const sinEjec = conRuc.filter(r => (r.get('EJECUTIVO') || '').trim() === '');
                     const delRango = conRuc.filter(r => criteria(r));
@@ -175,7 +176,7 @@ export class LeadCache {
                     return {
                         success: false,
                         count: 0,
-                        error: `No hay leads disponibles para este criterio. (Base: ${conRuc.length} · sin ejecutivo: ${sinEjec.length} · de este rango: ${delRango.length} · libres de este rango: ${libresDelRango.length})`,
+                        error: `No hay leads disponibles para este criterio. (filas: ${filas} · con RUC: ${conRuc.length} · sin ejecutivo: ${sinEjec.length} · de este rango: ${delRango.length} · libres del rango: ${libresDelRango.length})`,
                     };
                 }
 
