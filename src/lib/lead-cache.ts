@@ -167,7 +167,16 @@ export class LeadCache {
                 }).slice(0, quantity);
 
                 if (availableCandidates.length === 0) {
-                    return { success: false, count: 0, error: 'No hay leads disponibles para este criterio.' };
+                    // Diagnóstico: ayuda a entender por qué no hay candidatos.
+                    const conRuc = this.rows.filter(r => r.get('RUC'));
+                    const sinEjec = conRuc.filter(r => (r.get('EJECUTIVO') || '').trim() === '');
+                    const delRango = conRuc.filter(r => criteria(r));
+                    const libresDelRango = sinEjec.filter(r => criteria(r));
+                    return {
+                        success: false,
+                        count: 0,
+                        error: `No hay leads disponibles para este criterio. (Base: ${conRuc.length} · sin ejecutivo: ${sinEjec.length} · de este rango: ${delRango.length} · libres de este rango: ${libresDelRango.length})`,
+                    };
                 }
 
                 // 3. Perform assignments
