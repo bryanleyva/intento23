@@ -50,7 +50,12 @@ export class LeadCache {
         try {
             console.log('LeadCache: refreshing data from Google Sheets...');
             await loadDoc();
-            const sheet = doc.sheetsByTitle['BASE CLARO'];
+            let sheet = doc.sheetsByTitle['BASE CLARO'];
+            if (!sheet) {
+                // Tolerante a espacios extra o mayúsculas en el nombre de la pestaña.
+                const key = Object.keys(doc.sheetsByTitle).find(k => k.trim().toUpperCase() === 'BASE CLARO');
+                if (key) sheet = doc.sheetsByTitle[key];
+            }
             if (!sheet) {
                 console.error('LeadCache: Sheet BASE CLARO not found');
                 return;
@@ -150,6 +155,11 @@ export class LeadCache {
                 // 1. Force refresh to ensure we have the absolute latest state
                 // We call the internal _refresh here because we are already inside a runLocked block
                 await this._refresh();
+                if (this.rows.length === 0) {
+                    // Lectura vacía (posible fallo transitorio): reintenta una vez.
+                    await new Promise(res => setTimeout(res, 400));
+                    await this._refresh();
+                }
 
                 // 2. Filter candidates that are TRULY available right now.
                 // When poolSupervisor is provided (two-tier flow), only leads that the admin
