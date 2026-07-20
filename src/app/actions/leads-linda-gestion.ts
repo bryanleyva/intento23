@@ -271,7 +271,7 @@ export async function getLindaAssignmentStats(userRole?: string, userName?: stri
         }));
 
         const stock: Record<string, number> = { '1-4': 0, '5-10': 0, '11-15': 0, '16-21': 0, '22-30': 0, '30+': 0 };
-        const normPool = (userRole === 'SPECIAL' && userName) ? userName.trim().toLowerCase() : null;
+        const normPool = null; // supervisores ven el stock global completo
         allRows.forEach(row => {
             const exec = (row.get('EJECUTIVO') || '').trim();
             if (exec !== '') return;
@@ -343,7 +343,8 @@ export async function assignLindaLeadsByCriteria(
             }
         };
 
-        const poolSupervisor = (userRole === 'SPECIAL' && userName) ? userName : undefined;
+        // Los supervisores asignan directo del stock global (sin pool por supervisor).
+        const poolSupervisor = undefined;
         return await cache.batchAssignByCriteria(executiveName, quantity, criteria, fechaInicio, poolSupervisor);
     } catch (error: any) {
         console.error('Error en assignLindaLeadsByCriteria:', error);

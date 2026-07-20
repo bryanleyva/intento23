@@ -1591,9 +1591,8 @@ export async function getExecutiveAssignmentStats(userRole?: string, userName?: 
             '30+': 0
         };
 
-        // GATE: a supervisor only sees the stock from their own pool (leads the admin
-        // assigned to them, SUPERVISOR === userName and still without executive).
-        const normPool = (userRole === 'SPECIAL' && userName) ? userName.trim().toLowerCase() : null;
+        // Supervisores ven el stock global completo (todo lead sin ejecutivo).
+        const normPool = null;
         allLeads.forEach(row => {
             const exec = (row.get('EJECUTIVO') || '').trim();
             if (exec !== '') return;
@@ -1668,8 +1667,8 @@ export async function assignLeadsByCriteria(
             }
         };
 
-        // GATE: supervisors can only draw from their own pool.
-        const poolSupervisor = (userRole === 'SPECIAL' && userName) ? userName : undefined;
+        // Los supervisores asignan directo del stock global (sin pool por supervisor).
+        const poolSupervisor = undefined;
         const result = await cache.batchAssignByCriteria(executiveName, quantity, criteria, fechaInicio, poolSupervisor);
         return result;
 
