@@ -11,10 +11,11 @@ export default function ErpExportPanel() {
     const now = new Date();
     const [mes, setMes] = useState(now.getMonth() + 1);
     const [anio, setAnio] = useState(now.getFullYear());
+    const [todos, setTodos] = useState(false);
     const [rows, setRows] = useState<PlantillaRow[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [downloading, setDownloading] = useState(false);
-    const [aplicado, setAplicado] = useState<{ mes: number; anio: number } | null>(null);
+    const [aplicado, setAplicado] = useState<{ mes: number; anio: number; todos: boolean } | null>(null);
 
     const years: number[] = [];
     for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y);
@@ -23,13 +24,13 @@ export default function ErpExportPanel() {
         setLoading(true);
         setRows(null);
         try {
-            const res = await getVentasActivadasPlantilla(mes, anio);
+            const res = await getVentasActivadasPlantilla(mes, anio, todos);
             if (!res.success || !res.data) {
                 AppSwal.fire({ icon: 'error', title: 'Error', text: res.error || 'No se pudo obtener la data.' });
                 return;
             }
             setRows(res.data);
-            setAplicado({ mes, anio });
+            setAplicado({ mes, anio, todos });
         } catch (e) {
             console.error(e);
             AppSwal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un problema al obtener la data.' });
@@ -54,7 +55,9 @@ export default function ErpExportPanel() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `ventas_cierre_${String(aplicado?.mes ?? mes).padStart(2, '0')}_${aplicado?.anio ?? anio}.xlsx`;
+            a.download = aplicado?.todos
+                ? 'ventas_cierre_TODOS.xlsx'
+                : `ventas_cierre_${String(aplicado?.mes ?? mes).padStart(2, '0')}_${aplicado?.anio ?? anio}.xlsx`;
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (e) {
@@ -78,17 +81,21 @@ export default function ErpExportPanel() {
                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                 borderRadius: '1rem', padding: '1.25rem',
             }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '5px', opacity: todos ? 0.4 : 1 }}>
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b' }}>Mes</span>
-                    <select style={selectStyle} value={mes} onChange={e => setMes(Number(e.target.value))}>
+                    <select style={selectStyle} value={mes} disabled={todos} onChange={e => setMes(Number(e.target.value))}>
                         {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                     </select>
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '5px', opacity: todos ? 0.4 : 1 }}>
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b' }}>Año</span>
-                    <select style={selectStyle} value={anio} onChange={e => setAnio(Number(e.target.value))}>
+                    <select style={selectStyle} value={anio} disabled={todos} onChange={e => setAnio(Number(e.target.value))}>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '9px 0', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700 }}>
+                    <input type="checkbox" checked={todos} onChange={e => setTodos(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }} />
+                    Todos los meses
                 </label>
                 <button
                     onClick={aplicarFiltro}
@@ -122,7 +129,7 @@ export default function ErpExportPanel() {
                 <div style={{ marginTop: '1.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'white' }}>
-                            {aplicado ? `${MESES[aplicado.mes - 1]} ${aplicado.anio}` : ''} · Formato plantilla
+                            {aplicado ? (aplicado.todos ? 'Todos los meses' : `${MESES[aplicado.mes - 1]} ${aplicado.anio}`) : ''} · Formato plantilla
                         </h3>
                         <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700 }}>{rows.length} ventas ACTIVADO</span>
                     </div>

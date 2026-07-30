@@ -20,13 +20,6 @@ function parseFechaParts(raw: string): { d: number; m: number; y: number } | nul
     return { d, m, y };
 }
 
-// FECHA de la plantilla en formato ISO (YYYY-MM-DD).
-function toISO(raw: string): string {
-    const p = parseFechaParts(raw);
-    if (!p) return '';
-    return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
-}
-
 // Mes/año en que cuenta la venta: prioriza FECHA PERIODO (MM/YYYY), como el linker.
 function resolvePeriodo(row: any): { year: number; month: number } | null {
     const fp = String(row.get('FECHA PERIODO') || '').trim();
@@ -55,7 +48,8 @@ function resolvePeriodo(row: any): { year: number; month: number } | null {
  */
 export async function getVentasActivadasPlantilla(
     month: number,
-    year: number
+    year: number,
+    todos = false
 ): Promise<{ success: boolean; data?: PlantillaRow[]; error?: string }> {
     try {
         await loadDoc();
@@ -84,7 +78,7 @@ export async function getVentasActivadasPlantilla(
             if (norm(row.get('ESTADO')) !== 'ACTIVADO') continue;
 
             const per = resolvePeriodo(row);
-            if (!per || per.year !== year || per.month !== month) continue;
+            if (!todos && (!per || per.year !== year || per.month !== month)) continue;
 
             const ejecutivo = String(row.get('EJECUTIVO') || '').trim();
             const supervisor = String(row.get('SUPERVISOR') || '').trim();
@@ -107,7 +101,7 @@ export async function getVentasActivadasPlantilla(
                 : '';
 
             data.push({
-                fecha: toISO(row.get('FECHA ACTIVACION') || row.get('FECHA FIN') || row.get('FECHA INICIO') || ''),
+                fecha: per ? `${String(per.month).padStart(2, '0')}/${per.year}` : '',
                 cliente: String(row.get('RAZON SOCIAL') || '').trim(),
                 doc: docId,
                 canal,
