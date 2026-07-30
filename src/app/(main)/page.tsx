@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import UserFotocheck from '@/components/UserFotocheck';
 import { getVentasStandardMensual } from '@/app/actions/ventas-standard';
@@ -235,6 +236,22 @@ export default function InicioPage() {
                                     Hoja <strong style={{ color: '#9ca3af' }}>EJECUTIVOS-STANDARD</strong>: comparativa de líneas
                                     (estado <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>) de todos los ejecutivos de la hoja VENTAS, según FECHA PERIODO.
                                     Eliges el mes final y se arma una ventana de 7 meses hacia atrás.
+                                </span>
+
+                                <Link
+                                    href="/exportar-erp"
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '0.6rem', alignSelf: 'flex-start',
+                                        marginTop: '0.5rem', padding: '0.8rem 1.4rem', background: '#6366f1', color: 'white',
+                                        borderRadius: '0.7rem', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none',
+                                        boxShadow: '0 8px 20px -8px rgba(99,102,241,0.6)',
+                                    }}
+                                >
+                                    📤 Exportar ventas a erpviernes (plantilla)
+                                </Link>
+                                <span style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                                    Filtra por mes las ventas <strong style={{ color: '#9ca3af' }}>ACTIVADO</strong>, revísalas en pantalla
+                                    con el formato de la plantilla y descárgalas en XLSX.
                                 </span>
                             </div>
                         )}
