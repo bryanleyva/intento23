@@ -94,15 +94,27 @@ export async function getVentasActivadasPlantilla(
             const ruc = String(row.get('RUC') || '').trim();
             const docId = ruc || String(row.get('DOCUMENTO IDENTIDAD') || '').trim();
 
+            // canal: RUC 10 si el RUC empieza en 10; si no, RUC 20.
+            const canal = ruc.startsWith('10') ? 'RUC 10' : 'RUC 20';
+
+            // plan: cargo fijo total ÷ cantidad de líneas (S/ por línea).
+            const lineasStr = String(row.get('CANTIDAD LINEAS') || '').trim();
+            const cargoStr = String(row.get('CF TOTAL') || '').trim();
+            const lineasNum = parseInt(lineasStr.replace(/[^\d]/g, ''), 10);
+            const cargoNum = parseFloat(cargoStr.replace(/,/g, ''));
+            const plan = (!isNaN(lineasNum) && lineasNum > 0 && !isNaN(cargoNum))
+                ? (cargoNum / lineasNum).toFixed(2)
+                : '';
+
             data.push({
                 fecha: toISO(row.get('FECHA ACTIVACION') || row.get('FECHA FIN') || row.get('FECHA INICIO') || ''),
                 cliente: String(row.get('RAZON SOCIAL') || '').trim(),
                 doc: docId,
-                canal: String(row.get('SEGMENTO') || '').trim(),
-                plan: String(row.get('DETALLE') || row.get('PRODUCTO') || '').trim(),
+                canal,
+                plan,
                 tipo: String(row.get('TIPO DE VENTA') || '').trim(),
-                lineas: String(row.get('CANTIDAD LINEAS') || '').trim(),
-                cargo: String(row.get('CF TOTAL') || '').trim(),
+                lineas: lineasStr,
+                cargo: cargoStr,
                 direccion: String(row.get('DIRECCION') || '').trim(),
                 sr: String(row.get('SR DE INGRESO') || '').trim(),
                 nro_orden: String(row.get('NUMERO DE ORDEN') || '').trim(),
@@ -111,7 +123,7 @@ export async function getVentasActivadasPlantilla(
                 vendedor: ejecutivo,
                 supervisor_dni: infoSup?.dni || '',
                 supervisor,
-                equipo: infoEje?.campana || '',
+                equipo: '',
                 estado: 'activado',
             });
         }
