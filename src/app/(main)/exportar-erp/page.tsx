@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ErpExportPanel from "@/components/ErpExportPanel";
+import UsuariosIdsPanel from "@/components/UsuariosIdsPanel";
 
 export default async function ExportarErpPage() {
     const session = await getServerSession(authOptions);
@@ -47,6 +48,16 @@ export default async function ExportarErpPage() {
 
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
                 <ErpExportPanel />
+
+                <div style={{ margin: '2.5rem 0 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+                    <span style={{ color: '#475569', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        Padrón de usuarios
+                    </span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+                </div>
+
+                <UsuariosIdsPanel />
             </div>
         </div>
     );

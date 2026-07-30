@@ -24,7 +24,11 @@
       "Bash(npx next *)",
       "Bash(Get-ChildItem \"C:\\\\Users\\\\PC\\\\Desktop\\\\intento23-main\\\\src\\\\components\\\\\" | Select-Object Name)",
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=si npx prisma migrate dev --name add_lead_gestion_fields)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(cd \"c:/Users/PC/Desktop/intento23-main\" && find . -iname \"*plantilla*\" -not -path \"*/node_modules/*\" -not -path \"*/.next/*\" 2>/dev/null; echo \"--- also search parent ---\"; find /c/Users/PC/Desktop -maxdepth 3 -iname \"plantilla_ventas_cierre*\" 2>/dev/null | head)",
+      "Read(//c/Users/PC/Desktop/**)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m 'feat: padron de usuarios \\(vendedores + supervisores\\) con ID fijo persistente *)"
     ]
   }
 }
