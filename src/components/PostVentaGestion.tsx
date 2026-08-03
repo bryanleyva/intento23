@@ -75,6 +75,34 @@ const SEG_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
 };
 const getSeg = (s: string) => SEG_COLORS[s?.toUpperCase()] ?? { bg: '#ffffff08', text: '#94a3b8', glow: '#ffffff20' };
 
+const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// Extrae {mes, año} de un texto: acepta "MM/YYYY" (FECHA PERIODO) o "DD/MM/YYYY..." (fechas).
+function parseMesAnio(raw: string): { m: number; y: number } | null {
+    const s = String(raw || '').split(',')[0].trim();
+    if (!s) return null;
+    const p = s.split('/');
+    if (p.length === 2) {
+        const m = parseInt(p[0], 10), y = parseInt(p[1], 10);
+        if (m >= 1 && m <= 12 && y > 1900) return { m, y };
+    }
+    if (p.length === 3) {
+        const m = parseInt(p[1], 10), y = parseInt(p[2], 10);
+        if (m >= 1 && m <= 12 && y > 1900) return { m, y };
+    }
+    return null;
+}
+
+// Periodo de una cuenta: prioriza FECHA PERIODO (como el resto del sistema).
+function periodoDeCuenta(c: PostVentaRecord): { m: number; y: number } | null {
+    return parseMesAnio(c.fechaPeriodo)
+        || parseMesAnio(c.fechaActivacion)
+        || parseMesAnio(c.fechaFin)
+        || parseMesAnio(c.fechaInicio);
+}
+
+const mesKey = (m: number, y: number) => `${y}-${String(m).padStart(2, '0')}`;
+
 export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRole, initialGuardadas, allHistorial }: Props) {
     const isJefeBO = userRole === 'JEFE_BO';
 
@@ -85,12 +113,17 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const [segFilter, setSegFilter] = useState('ALL');
     const [rucFilter, setRucFilter] = useState<'ALL' | 'RUC10' | 'RUC20'>('ALL');
     const [nuevasFilter, setNuevasFilter] = useState<'ALL' | 'NUEVAS' | 'GESTIONADAS'>('ALL');
+    const [mesFilter, setMesFilter] = useState('ALL');
     const [showList, setShowList] = useState(false);
 
     const _q = search.trim().toLowerCase();
     const filteredCuentas = cuentas.filter(c => {
         if (filterEjecutivo && c.ejecutivo !== filterEjecutivo) return false;
         if (segFilter !== 'ALL' && (c.segmento || '').toUpperCase() !== segFilter) return false;
+        if (mesFilter !== 'ALL') {
+            const per = periodoDeCuenta(c);
+            if (!per || mesKey(per.m, per.y) !== mesFilter) return false;
+        }
         if (rucFilter === 'RUC10' && !c.isRuc10) return false;
         if (rucFilter === 'RUC20' && c.isRuc10) return false;
         if (nuevasFilter === 'NUEVAS' && guardadas.has(c.ruc)) return false;
@@ -150,6 +183,18 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
     const ejecutivosUnicos = [...new Set(cuentas.map(c => c.ejecutivo).filter(Boolean))].sort();
     const segmentosUnicos = [...new Set(cuentas.map(c => (c.segmento || '').toUpperCase()).filter(Boolean))].sort();
 
+    // Meses disponibles (por periodo de la venta), más recientes primero.
+    const mesesUnicos = (() => {
+        const map = new Map<string, string>(); // key -> label
+        for (const c of cuentas) {
+            const per = periodoDeCuenta(c);
+            if (!per) continue;
+            const k = mesKey(per.m, per.y);
+            if (!map.has(k)) map.set(k, `${MESES_LARGO[per.m - 1]} ${per.y}`);
+        }
+        return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    })();
+
     // Derived estado/motivo/submotivo config
     const estadoConfig = selectedEstado ? ESTADOS[selectedEstado] : null;
     const motivosParaEstado = estadoConfig?.motivos ?? [];
@@ -166,7 +211,7 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
         const firstUnsaved = filteredCuentas.findIndex(c => !guardadas.has(c.ruc));
         setIdx(firstUnsaved >= 0 ? firstUnsaved : 0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterEjecutivo, search, segFilter, rucFilter, nuevasFilter]);
+    }, [filterEjecutivo, search, segFilter, rucFilter, nuevasFilter, mesFilter]);
 
     useEffect(() => {
         if (isJefeBO) return;
@@ -597,6 +642,12 @@ export default function PostVentaGestion({ cuentas, usuario, rangeLabel, userRol
                             <select className="pv-select" value={filterEjecutivo} onChange={e => setFilterEjecutivo(e.target.value)}>
                                 <option value="">Ejecutivo: Todos</option>
                                 {ejecutivosUnicos.map(ej => <option key={ej} value={ej}>{ej}</option>)}
+                            </select>
+                        )}
+                        {mesesUnicos.length > 0 && (
+                            <select className="pv-select" value={mesFilter} onChange={e => setMesFilter(e.target.value)}>
+                                <option value="ALL">Mes: Todos</option>
+                                {mesesUnicos.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                             </select>
                         )}
                         {segmentosUnicos.length > 0 && (

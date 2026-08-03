@@ -18,16 +18,6 @@ function canAccessRuc10(role: string): boolean {
     return role === 'ANDREA' || role === 'ADMIN' || role === 'JEFE_BO';
 }
 
-function getDateRangeLabel(): string {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const oldest = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-    const fmtOpts: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
-    const prevLabel = prev.toLocaleString('es-PE', fmtOpts).toUpperCase();
-    const oldestLabel = oldest.toLocaleString('es-PE', fmtOpts).toUpperCase();
-    return `${oldestLabel} — ${prevLabel}`;
-}
-
 export default async function PostVentaPage() {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) redirect('/login');
@@ -54,9 +44,8 @@ export default async function PostVentaPage() {
         );
     }
 
-    const isAndrea = role === 'ANDREA';
-    // Andrea ve TODAS las cuentas activas (sin ventana de 6 meses).
-    const rangeLabel = isAndrea ? 'TODAS LAS CUENTAS ACTIVAS' : getDateRangeLabel();
+    // Todos en postventa ven TODAS las cuentas ACTIVADO de todos los meses (sin ventana).
+    const rangeLabel = 'TODAS LAS CUENTAS ACTIVAS';
     const isJefeBO = role === 'JEFE_BO';
     const showRuc10Tab = canAccessRuc10(role);
 
@@ -104,7 +93,7 @@ export default async function PostVentaPage() {
         Promise<{ success: boolean; data?: any[]; error?: string }>,
         Promise<{ success: boolean; data?: any[]; error?: string }>,
     ] = [
-        getPostVentaData(isAndrea),
+        getPostVentaData(true),
         showRuc10Tab ? getPostVentaRuc10Data() : Promise.resolve({ success: true, data: [] }),
         getPostVentaHistorial(userName),
     ];
